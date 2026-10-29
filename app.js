@@ -15,6 +15,9 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
+// Mobile WebXR AR sessions generally provide 'local' tracking, not 'local-floor'.
+// Three.js defaults to 'local-floor', which was causing requestReferenceSpace to fail.
+renderer.xr.setReferenceSpaceType('local');
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
 document.body.appendChild(renderer.domElement);
@@ -160,12 +163,18 @@ async function checkSupport() {
 
 button.addEventListener('click', async () => {
   if (session) {
-    await session.end();
+    try { await session.end(); }
+    catch (error) { setStatus('Could not exit AR: ' + error.message); }
     return;
   }
-  // Request a session directly from the user gesture; do not hide a synthetic button.
+
+  // Request the AR session directly from the click (a user gesture).
+  // Use 'local' reference space, configured above before starting the session.
+  let requested = null;
+  button.disabled = true;
+  setStatus('Starting AR…');
   try {
-    const requested = await navigator.xr.requestSession('immersive-ar', {
+    requested = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: ['hit-test'],
       optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.getElementById('overlay') }
@@ -180,8 +189,15 @@ button.addEventListener('click', async () => {
     tip.hidden = false;
     setStatus('Look around to find a surface…');
   } catch (error) {
+    // Clean up an XR session if the Three.js renderer fails to initialize it.
+    if (requested) {
+      try { await requested.end(); } catch (_) { /* Already ended. */ }
+    }
+    session = null;
     setStatus('Could not start AR: ' + error.message);
     button.textContent = 'Start AR';
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -262,10 +278,16 @@ renderer.setAnimationLoop((timestamp, frame) => {
   if (frame && session) {
     if (!hitTestRequested) {
       hitTestRequested = true;
-      session.requestReferenceSpace('viewer')
-        .then(space => session.requestHitTestSource({space}))
-        .then(source => { hitTestSource = source; })
-        .catch(error => setStatus('Surface detection failed: ' + error.message));
+      const currentSession = session;
+      currentSession.requestReferenceSpace('viewer')
+        .then(space => currentSession.requestHitTestSource({space}))
+        .then(source => {
+          if (session === currentSession) hitTestSource = source;
+          else source.cancel();
+        })
+        .catch(error => {
+          if (session === currentSession) setStatus('Surface detection failed: ' + error.message);
+        });
     }
     if (!placed && hitTestSource) {
       const hits = frame.getHitTestResults(hitTestSource);

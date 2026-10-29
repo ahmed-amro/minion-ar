@@ -1,6 +1,8 @@
-# Bello — AR companion, prototype 0.1
+# Bello — AR companion, prototype 0.2
 
 A no-backend, no-API-key, Minion-inspired original cartoon companion. Built with Three.js/WebXR.
+
+**v0.2 fix:** Uses Three.js `local` tracking instead of the default `local-floor`, which caused `requestReferenceSpace` errors in Chrome for Android. Also cleans up a failed AR startup and adds a cache-busting URL for `app.js`.
 
 ## Publish on GitHub Pages
 
@@ -33,3 +35,13 @@ Everything runs in the browser. The camera feed is used locally by the AR runtim
 - AR support varies by phone/browser and depends on camera permission and secure HTTPS hosting.
 - Moving between rooms may require restarting AR to re-anchor the character.
 - Future: blink, look-at-user, better gestures, speech, conversational AI, personal memory.
+
+## Updating an existing GitHub Pages repository
+
+1. Unzip this archive.
+2. In your GitHub repository, replace `index.html` and `app.js` at the top level with the versions here. The other files are unchanged.
+3. Commit the files to `main`, and wait for Pages/Actions to show deployment success.
+4. Reload https://YOUR-USERNAME.github.io/minion-ar/ in Chrome, checking the label reads **PROTOTYPE 0.2**.
+5. Tap **Start AR**, scan a surface, tap the white placement ring, then tap anywhere outside the overlay to trigger a reaction.
+
+Do not upload the ZIP itself to the repository; upload the files from inside the archive.

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Bello 0.4 — entirely client-side, no camera upload, AI or API required.
+// Bello 0.5 — expressive, touch-targeted AR companion, entirely client-side.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -13,6 +13,62 @@ const largerButton = document.getElementById('largerButton');
 const sizeLabel = document.getElementById('sizeLabel');
 const breakButton = document.getElementById('breakButton');
 const autoButton = document.getElementById('autoButton');
+const soundButton = document.getElementById('soundButton');
+const playButton = document.getElementById('playButton');
+const moreButton = document.getElementById('moreButton');
+const extras = document.getElementById('extras');
+let soundEnabled = true;
+let audioContext = null;
+
+// Tiny original synthesized voice effects; no external audio or microphones.
+// Audio is created only after an explicit user interaction (Chrome autoplay policy).
+function chirp(pattern) {
+  if (!soundEnabled) return;
+  const AudioContextType = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextType) return;
+  try {
+    if (!audioContext) audioContext = new AudioContextType();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    const now = audioContext.currentTime + .025;
+    const patterns = {
+      wave: [[560,.00,.11],[770,.12,.12],[910,.24,.16]],
+      jump: [[400,.00,.09],[810,.11,.16]],
+      dance: [[660,.00,.10],[520,.12,.10],[820,.24,.11],[620,.37,.14]],
+      spin: [[740,.00,.12],[920,.13,.11],[550,.26,.17]],
+      giggle: [[680,.00,.09],[825,.10,.09],[660,.20,.08],[910,.30,.15]],
+      peek: [[440,.00,.13],[670,.16,.13]],
+      hello: [[550,.00,.12],[710,.14,.15]],
+    };
+    for (const [freq, offset, length] of (patterns[pattern] || patterns.hello)) {
+      const osc = audioContext.createOscillator();
+      const volume = audioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.12, now + offset + length);
+      volume.gain.setValueAtTime(.0001, now + offset);
+      volume.gain.exponentialRampToValueAtTime(.045, now + offset + .018);
+      volume.gain.exponentialRampToValueAtTime(.0001, now + offset + length);
+      osc.connect(volume); volume.connect(audioContext.destination);
+      osc.start(now + offset); osc.stop(now + offset + length + .02);
+      osc.onended = () => { osc.disconnect(); volume.disconnect(); };
+    }
+  } catch (_error) { /* Audio is optional; never disrupt AR. */ }
+}
+
+moreButton.addEventListener('click', () => {
+  markEngaged();
+  extras.hidden = !extras.hidden;
+  moreButton.setAttribute('aria-expanded', String(!extras.hidden));
+  moreButton.setAttribute('aria-label', extras.hidden ? 'Show extra Bello controls' : 'Hide extra Bello controls');
+});
+soundButton.addEventListener('click', () => {
+  markEngaged();
+  soundEnabled = !soundEnabled;
+  soundButton.textContent = soundEnabled ? '🔊 On' : '🔇 Off';
+  soundButton.setAttribute('aria-pressed', String(soundEnabled));
+  setStatus(soundEnabled ? 'Bello sounds are on. Tap Bello to hear him!' : 'Bello sounds are muted.');
+  if (soundEnabled) chirp('hello');
+});
 
 // Prevent clicks on controls from also registering as AR scene taps.
 overlay.addEventListener('beforexrselect', (event) => {
@@ -88,8 +144,10 @@ reticle.matrixAutoUpdate = false;
 reticle.visible = false;
 scene.add(reticle);
 
+// Retain a Three.js controller only as a fallback when a platform omits event poses.
+// The actual tap listener is attached to the native XRSession so we can access
+// XRInputSource.targetRaySpace for accurate touch targeting.
 const controller = renderer.xr.getController(0);
-controller.addEventListener('select', handleTap);
 scene.add(controller);
 
 let session = null;
@@ -146,12 +204,20 @@ function buildCompanion() {
   }
   // Black goggle head strap around circumference.
   addMesh(motion, new THREE.CylinderGeometry(.175, .175, .048, 40), rubber, 0, .557, 0);
-  // One big expressive eye, with metallic ring and brown pupil.
+  // Chrome goggle rim remains fixed. Inner eye blinks and looks around.
   addMesh(motion, new THREE.SphereGeometry(.105, 28, 20), metal, 0, .558, .149);
-  addMesh(motion, new THREE.SphereGeometry(.081, 28, 20), material(0xffffff), 0, .558, .214);
-  addMesh(motion, new THREE.SphereGeometry(.04, 20, 16), material(0x6c4127), .007, .554, .288);
-  addMesh(motion, new THREE.SphereGeometry(.023, 20, 16), navy, .007, .554, .320);
-  addMesh(motion, new THREE.SphereGeometry(.009, 12, 12), material(0xffffff, {emissive:0x222222}), -.003, .568, .339);
+  const eyeBlink = new THREE.Group();
+  eyeBlink.position.set(0, .558, 0);
+  motion.add(eyeBlink);
+  addMesh(eyeBlink, new THREE.SphereGeometry(.081, 28, 20), material(0xffffff), 0, 0, .214);
+  const gaze = new THREE.Group();
+  eyeBlink.add(gaze);
+  addMesh(gaze, new THREE.SphereGeometry(.04, 20, 16), material(0x6c4127), .007, -.004, .288);
+  addMesh(gaze, new THREE.SphereGeometry(.023, 20, 16), navy, .007, -.004, .320);
+  addMesh(gaze, new THREE.SphereGeometry(.009, 12, 12), material(0xffffff), -.003, .010, .339);
+  const closedEyeLine = addMesh(motion,
+    new THREE.BoxGeometry(.13, .007, .008), rubber, 0, .558, .309);
+  closedEyeLine.visible = false;
   // Smile, formed from a gentle upward-curving line.
   const smileCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-.063,.417,.168),
@@ -160,7 +226,17 @@ function buildCompanion() {
     new THREE.Vector3(.035,.39,.176),
     new THREE.Vector3(.063,.417,.168)
   ]);
-  addMesh(motion, new THREE.TubeGeometry(smileCurve, 20, .005, 8, false), material(0x5b382c), 0,0,0);
+  const smile = addMesh(motion, new THREE.TubeGeometry(smileCurve, 20, .005, 8, false), material(0x5b382c), 0,0,0);
+  const surpriseMouth = addMesh(motion, new THREE.SphereGeometry(.034,20,16), material(0x3d2025), 0,.397,.175);
+  surpriseMouth.scale.set(1,.87,.17);
+  surpriseMouth.visible = false;
+
+  // A transparent volume catches taps on the little character, not the desk.
+  // It raycasts normally, but draws no pixels and does not affect AR depth.
+  const touchZone = addMesh(motion, new THREE.SphereGeometry(.29, 16, 12),
+    new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false, depthTest:false}),
+    0,.445,.025);
+  touchZone.name = 'bello-touch-target';
 
   // Arms rotate from shoulders so we can wave later.
   const arms = [];
@@ -193,7 +269,8 @@ function buildCompanion() {
   magazine.visible = false;
   motion.add(magazine);
   root.userData = { motion, leftArm:arms[0], rightArm:arms[1], chair, magazine,
-    page: magazine.userData.page };
+    page: magazine.userData.page, eyeBlink, gaze, closedEyeLine,
+    smile, surpriseMouth, touchZone };
   return root;
 }
 
@@ -358,6 +435,89 @@ function animateBreak(t) {
   d.rightArm.rotation.z = right;
 }
 
+// A blink is a quick double-sided squeeze; the iris also subtly tracks its
+// surroundings on an independent rhythm (not actual camera eye tracking).
+let nextBlinkAt = performance.now()/1000 + 2.2;
+let blinkStarted = -10;
+function animateFace(t) {
+  const d = companion.userData;
+  if (t > nextBlinkAt) {
+    blinkStarted = t;
+    nextBlinkAt = t + 2.8 + 2.1 * (0.5 + 0.5 * Math.sin(t*2.27));
+  }
+  const progress = (t - blinkStarted)/.24;
+  const closeAmount = progress >= 0 && progress <= 1 ? Math.sin(progress*Math.PI) : 0;
+  d.eyeBlink.scale.y = Math.max(.045, 1 - .97 * closeAmount);
+  d.closedEyeLine.visible = closeAmount > .90;
+  d.gaze.position.x = .012*Math.sin(t*.85) + .005*Math.sin(t*1.9);
+  d.gaze.position.y = .008*Math.sin(t*.62);
+  d.surpriseMouth.visible = reaction === 'jump' || reaction === 'giggle' || reaction === 'peek';
+  d.smile.visible = !d.surpriseMouth.visible;
+}
+
+const raycaster = new THREE.Raycaster();
+const rayOrigin = new THREE.Vector3();
+const rayDirection = new THREE.Vector3();
+const rayQuaternion = new THREE.Quaternion();
+const previewPointer = new THREE.Vector2();
+function isPointingAtBello(event) {
+  let gotRay = false;
+  const ref = renderer.xr.getReferenceSpace();
+  try {
+    const target = event.inputSource && event.inputSource.targetRaySpace;
+    const pose = event.frame && ref && target ? event.frame.getPose(target, ref) : null;
+    if (pose) {
+      const p = pose.transform.position;
+      const q = pose.transform.orientation;
+      rayOrigin.set(p.x,p.y,p.z);
+      rayQuaternion.set(q.x,q.y,q.z,q.w);
+      rayDirection.set(0,0,-1).applyQuaternion(rayQuaternion).normalize();
+      gotRay = true;
+    }
+  } catch (_error) { /* Fall back to Three.js controller pose. */ }
+  if (!gotRay) {
+    // Some Android WebXR runtimes omit the pose on the select event.
+    controller.updateMatrixWorld(true);
+    rayOrigin.setFromMatrixPosition(controller.matrixWorld);
+    rayQuaternion.setFromRotationMatrix(controller.matrixWorld);
+    rayDirection.set(0,0,-1).applyQuaternion(rayQuaternion).normalize();
+  }
+  raycaster.set(rayOrigin, rayDirection);
+  raycaster.near = 0;
+  raycaster.far = 15;
+  companion.updateMatrixWorld(true);
+  return raycaster.intersectObject(companion.userData.touchZone, false).length > 0;
+}
+
+// In preview, a mouse click or touch on Bello also triggers an animation.
+renderer.domElement.addEventListener('pointerdown', event => {
+  if (session) return; // XR tap events are handled by the XR controller.
+  const rect = renderer.domElement.getBoundingClientRect();
+  previewPointer.set(((event.clientX-rect.left)/rect.width)*2-1,
+    -((event.clientY-rect.top)/rect.height)*2+1);
+  camera.updateMatrixWorld(true);
+  companion.updateMatrixWorld(true);
+  raycaster.setFromCamera(previewPointer, camera);
+  if (raycaster.intersectObject(companion.userData.touchZone, false).length) reactToTouch();
+});
+
+function reactToTouch() {
+  markEngaged();
+  const actions = ['wave','jump','dance','spin','giggle','peek'];
+  reaction = actions[Math.floor(Math.random()*actions.length)];
+  reactionStarted = performance.now()/1000;
+  const messages = {
+    wave: 'Hello! 👋', jump: 'Boing! 🐸', dance: 'Dance time! 💃',
+    spin: 'Wheeee! 🌀', giggle: 'Hehehe! 😄', peek: 'Peekaboo! 👀'
+  };
+  setStatus('Bello: ' + messages[reaction]);
+  chirp(reaction);
+}
+
+playButton.addEventListener('click', () => {
+  if (placed && session) reactToTouch();
+});
+
 async function checkSupport() {
   if (!navigator.xr || !window.isSecureContext) {
     button.textContent = 'AR requires Android Chrome + HTTPS';
@@ -368,7 +528,7 @@ async function checkSupport() {
     const supported = await navigator.xr.isSessionSupported('immersive-ar');
     button.disabled = !supported;
     button.textContent = supported ? 'Start AR' : 'AR unavailable in this browser';
-    setStatus(supported ? 'Ready! Start AR to place Bello on a real surface.' : '3D preview available; this browser cannot start immersive AR.');
+    setStatus(supported ? 'Ready! Start AR, then tap Bello to play.' : '3D preview available; this browser cannot start immersive AR.');
   } catch (error) {
     button.textContent = 'Unable to check AR';
     setStatus('AR check failed: ' + error.message);
@@ -395,11 +555,14 @@ button.addEventListener('click', async () => {
     });
     session = requested;
     requested.addEventListener('end', onSessionEnd, { once: true });
+    requested.addEventListener('select', handleTap);
     await renderer.xr.setSession(requested);
     document.body.classList.add('xr-active');
     button.textContent = 'Exit AR';
     companion.scale.setScalar((heightCm / 100) / MODEL_HEIGHT_METERS);
     arControls.hidden = true;
+    extras.hidden = true;
+    moreButton.setAttribute('aria-expanded', 'false');
     moveButton.textContent = 'Move Bello';
     relocating = false;
     instruction.textContent = 'Scan a surface and tap the ring to place Bello.';
@@ -430,6 +593,8 @@ function onSessionEnd() {
   placed = false;
   relocating = false;
   arControls.hidden = true;
+  extras.hidden = true;
+  moreButton.setAttribute('aria-expanded', 'false');
   moveButton.textContent = 'Move Bello';
   document.body.classList.remove('xr-active');
   reticle.visible = false;
@@ -443,7 +608,7 @@ function onSessionEnd() {
   resetActivityVisuals();
   instruction.textContent = 'Open AR again to place your companion anywhere.';
   button.textContent = 'Start AR';
-  setStatus('Back in 3D preview.');
+  setStatus('Back in 3D preview. Tap Bello to play!');
 }
 
 // Keep Bello anchored in AR while allowing repeated placement without exiting AR.
@@ -469,7 +634,7 @@ moveButton.addEventListener('click', () => {
   }
 });
 
-function handleTap() {
+function handleTap(event) {
   if (!session) return;
   if (!placed) {
     if (!reticle.visible) {
@@ -490,19 +655,20 @@ function handleTap() {
     reticle.visible = false;
     tip.hidden = true;
     markEngaged();
-    setStatus('Bello is here! Tap to play; leave him alone for 30s to see a surprise.');
+    setStatus('Tap Bello to play! After 30 quiet seconds, he takes a break.');
     return;
   }
-  // Tap anywhere to engage again: the chair and magazine disappear first.
-  markEngaged();
-  const actions = ['wave','jump','dance','spin'];
-  reaction = actions[Math.floor(Math.random() * actions.length)];
-  reactionStarted = performance.now() / 1000;
-  setStatus('Bello: ' + ({wave:'Hello! 👋',jump:'Boing!',dance:'Dance time!',spin:'Wheeee!'}[reaction]));
+  // Ignore empty space; interactions must actually target Bello.
+  if (!isPointingAtBello(event)) {
+    setStatus('Tap directly on Bello to play (or use ⋯ for his other activities).');
+    return;
+  }
+  reactToTouch();
 }
 
 function animate(time) {
   const t = time / 1000;
+  animateFace(t);
   if (session && placed && !relocating && autoEnabled && breakStarted === null
       && t - lastEngagement > IDLE_DELAY_SECONDS) startBreak(t);
   const d = companion.userData;
@@ -518,6 +684,18 @@ function animate(time) {
   const elapsed = t - reactionStarted;
   if (reaction && elapsed >= 0 && elapsed < 1.8) {
     if (reaction === 'wave') right = 2.45 + .3 * Math.sin(elapsed * 13);
+    if (reaction === 'giggle') {
+      bounce = .028 * Math.abs(Math.sin(elapsed*23));
+      spin = .12 * Math.sin(elapsed*16);
+      left = -.5 + .22*Math.sin(elapsed*14);
+      right = .5 - .22*Math.sin(elapsed*14);
+    }
+    if (reaction === 'peek') {
+      spin = .4*Math.sin(elapsed*8);
+      bounce = -.015*Math.sin(elapsed*5);
+      left = -1.4;
+      right = 1.4;
+    }
     if (reaction === 'jump') bounce = Math.abs(Math.sin(elapsed * 9)) * .13;
     if (reaction === 'spin') spin = elapsed * Math.PI * 3;
     if (reaction === 'dance') {

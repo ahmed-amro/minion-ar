@@ -38,3 +38,26 @@ body.xr-active .tip { bottom: calc(84px + env(safe-area-inset-bottom)); font-siz
 .activity-control .break-button { background: #ffe174; color: #242014; }
 .activity-control .auto-button[aria-pressed="false"] { opacity: .68; }
 body.xr-active .tip { bottom: calc(125px + env(safe-area-inset-bottom)); }
+
+/* v0.5 — small unobtrusive action dock; extra options open on demand. */
+.ar-controls { gap: 7px; }
+.ar-controls .placement-control { gap: 6px; }
+.ar-controls .move-button { min-width: 0; font-size: 13px; }
+.ar-controls .more-button { flex: 0 0 44px; width: 44px; font-size: 24px; color: white; background: #24364eea; border: 1px solid #ffffff55; }
+.ar-controls .more-button[aria-expanded="true"] { background: #52709a; }
+.ar-controls .activity-control { justify-content: flex-end; gap: 5px; }
+.ar-controls .activity-control button { padding: 5px 9px; font-size: 11px; }
+.ar-controls .activity-control .sound-button[aria-pressed="false"] { opacity: .65; }
+.ar-controls .size-control button { width: 39px; }
+.ar-controls .size-control output { width: 49px; font-size: 12px; }
+body.xr-active .panel { background: rgba(10, 18, 30, .77); }
+body.xr-active .tip { bottom: calc(96px + env(safe-area-inset-bottom)); }
+@media (max-width: 375px) {
+  .ar-controls .size-control button { width: 34px; }
+  .ar-controls .size-control output { width: 44px; }
+  .ar-controls .more-button { flex-basis: 40px; width: 40px; }
+  .ar-controls .activity-control button { font-size: 10px; }
+}
+
+.ar-controls .activity-control { flex-wrap: wrap; }
+.ar-controls .activity-control .play-button { background: #f5cf51; color: #1c2025; }

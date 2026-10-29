@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#182334">
+  <title>Bello — Little AR Companion</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="overlay">
+    <section class="panel">
+      <div class="eyebrow">PROTOTYPE 0.1 · AR COMPANION</div>
+      <h1>Meet Bello <span aria-hidden="true">👋</span></h1>
+      <p id="instruction">Say hello to your little yellow companion. On a supported Android phone, tap <b>Start AR</b> to place him in your room.</p>
+      <button id="arButton" disabled>Checking AR support…</button>
+      <div id="status" role="status" aria-live="polite">Loading 3D preview…</div>
+    </section>
+    <div id="tip" class="tip" hidden>Move your phone slowly over a well-lit flat surface.</div>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

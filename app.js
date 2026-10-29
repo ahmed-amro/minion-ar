@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Conversation, isDirectCommand } from './conversation.js?v=0.7.0';
+import { Conversation, isDirectCommand } from './conversation.js?v=0.7.1';
 
-// Bello 0.7.0 — voice commands, tactile material textures, expressive AR desk companion.
+// Bello 0.7.1 — voice commands, tactile material textures, expressive AR desk companion.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -883,10 +883,12 @@ document.getElementById('connectForm').addEventListener('submit', async event =>
     updateConversationStatus('AI ready · ' + result.model + ' · ' + result.daily_limit + ' attempts/day');
     pairingInput.value = '';
     document.getElementById('connectionDetails').open = false;
-  } catch (_) {
+  } catch (error) {
     if (epoch === engagementEpoch) {
       conversation.disconnect();
-      updateConversationStatus('Could not connect. Check address, pairing code, Wi-Fi and network permission. Local commands still work.');
+      const detail = error.name === 'AbortError' ? 'Connection timed out.' :
+        error instanceof TypeError ? 'Browser/network blocked the request. Check the backend window: no new entry means the request did not reach Python.' : error.message;
+      updateConversationStatus('Could not connect: ' + detail + ' Local commands still work.');
     }
   } finally { connectButton.disabled = false; }
 });

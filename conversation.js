@@ -34,11 +34,23 @@ export class Conversation {
     try {
       const response = await this.fetcher(this.url + path, {
         method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
-        targetAddressSpace: /^(localhost|127\.)/.test(new URL(this.url).hostname) ? 'loopback' : 'local', signal: controller.signal,
+        // Private IP literals/.local/localhost are already recognizable by Chrome.
+        // Avoid optional fetch enum values that vary across browser versions.
+        signal: controller.signal,
         headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + this.token},
         body: JSON.stringify(data)
       });
-      if (!response.ok) throw new Error('Backend error ' + response.status);
+      if (!response.ok) {
+        const messages = {
+          401: 'Pairing code rejected. Copy the code from the currently running backend window.',
+          403: 'Backend rejected this website origin. Check the backend window.',
+          404: 'Backend endpoint not found. Check the address and backend version.',
+          429: 'Backend request limit reached. Wait before trying again.',
+          502: 'Laptop reached, but OpenAI rejected the request. Check key validity, credit and model access.',
+          503: 'Laptop reached, but its AI service is unavailable.'
+        };
+        throw new Error(messages[response.status] || 'Backend returned HTTP ' + response.status);
+      }
       const result = await response.json();
       if (serial !== this.serial) throw new Error('Cancelled');
       return result;

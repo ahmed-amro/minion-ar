@@ -61,3 +61,20 @@ body.xr-active .tip { bottom: calc(96px + env(safe-area-inset-bottom)); }
 
 .ar-controls .activity-control { flex-wrap: wrap; }
 .ar-controls .activity-control .play-button { background: #f5cf51; color: #1c2025; }
+
+/* v0.6 — compact push-to-talk microphone and optional manual command buttons. */
+.preview-mic { margin-top: 8px; min-height: 36px; background: #273d54; color: #fff; border: 1px solid #ffffff4f; font-size: 13px; }
+body.xr-active .preview-mic { display: none; }
+.ar-controls .mic-button { flex: 0 0 67px; width: 67px; font-size: 12px; background: #344965; color: #fff; border: 1px solid #ffffff55; }
+.ar-controls .mic-button[aria-pressed="true"],.preview-mic[aria-pressed="true"] { background:#b73838; color:white; }
+.ar-controls .activity-control { background: rgba(13,23,38,.6); padding:6px; border-radius: 14px; justify-content: center; }
+.ar-controls .activity-control .voice-commands { display:flex; gap:4px; width:100%; justify-content:center; flex-wrap:wrap; }
+.ar-controls .activity-control .voice-commands button { border:1px solid #ffffff35; background:#35465e; flex:1; min-width:48px; }
+.voice-toast { position: absolute; left: 50%; bottom: calc(94px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: min(90vw,440px); width: max-content; padding: 10px 16px; border:1px solid #ffffff40; border-radius: 14px; background:#10243beb; color:#fff; font-size: 13px; text-align:center; box-shadow:0 6px 24px #0007; }
+body.xr-active .voice-toast { bottom: calc(94px + env(safe-area-inset-bottom)); }
+@media (max-width:375px) {
+ .ar-controls .mic-button {flex-basis:59px;width:59px;font-size:11px;}
+ .ar-controls .move-button {font-size:12px;}
+ .ar-controls .size-control button {width:32px;}
+ .ar-controls .size-control output {width:40px;}
+}

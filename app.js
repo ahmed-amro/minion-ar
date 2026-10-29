@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Bello 0.5 — expressive, touch-targeted AR companion, entirely client-side.
+// Bello 0.6 — voice commands, tactile material textures, expressive AR desk companion.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -17,6 +17,13 @@ const soundButton = document.getElementById('soundButton');
 const playButton = document.getElementById('playButton');
 const moreButton = document.getElementById('moreButton');
 const extras = document.getElementById('extras');
+const micButton = document.getElementById('micButton');
+const previewMicButton = document.getElementById('previewMicButton');
+const voiceRepliesButton = document.getElementById('voiceRepliesButton');
+const voiceToast = document.getElementById('voiceToast');
+const commandButtons = [...document.querySelectorAll('[data-bello-command]')];
+let voiceRepliesEnabled = true;
+
 let soundEnabled = true;
 let audioContext = null;
 
@@ -133,6 +140,19 @@ rim.position.y = -0.02;
 previewBase.add(rim);
 scene.add(previewBase);
 
+const skinTex = paintTexture('skin', 127);
+const denimTex = paintTexture('denim', 331);
+const steelTex = paintTexture('steel', 977);
+const rubberTex = paintTexture('rubber', 1129);
+const woodTex = paintTexture('wood', 2401);
+const surfaceMats = {
+  yellow: new THREE.MeshStandardMaterial({ map: skinTex, roughness:.79, bumpMap:skinTex, bumpScale:.0016 }),
+  denim: new THREE.MeshStandardMaterial({ map: denimTex, roughness:.9, bumpMap:denimTex, bumpScale:.004 }),
+  rubber: new THREE.MeshStandardMaterial({ map:rubberTex, roughness:.82, bumpMap:rubberTex, bumpScale:.0018 }),
+  metal: new THREE.MeshStandardMaterial({ map:steelTex, metalness:.78, roughness:.27, bumpMap:steelTex, bumpScale:.0007 }),
+  wood: new THREE.MeshStandardMaterial({ map:woodTex, roughness:.74, bumpMap:woodTex, bumpScale:.002 })
+};
+
 const companion = buildCompanion();
 scene.add(companion);
 
@@ -173,6 +193,67 @@ function material(color, extra = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: .7, ...extra });
 }
 
+// Procedurally painted PBR-style surface maps. All pixels are generated locally;
+// no large downloadable textures, external image assets, or copyrighted models.
+// One shared set of 256x256 textures keeps Android AR GPU usage modest.
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+function paintTexture(type, seed) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const rng = seededRandom(seed);
+  const image = ctx.createImageData(256,256);
+  for (let y=0;y<256;y++) for (let x=0;x<256;x++) {
+    const i = (y*256+x)*4;
+    const noise = (rng()-.5);
+    let r,g,b;
+    if (type === 'denim') {
+      // Dyed cotton weave: diagonal twill stripes, warp and weft variations.
+      const warp = (x%5 === 0 ? 16 : 0), weft = ((y+(x>>1))%7 < 2 ? 13 : -5);
+      const shade = warp+weft + 25*noise;
+      [r,g,b] = [34+shade*.52, 91+shade*.85, 175+shade];
+    } else if (type === 'skin') {
+      // Fine non-repeating-looking matte skin grain; not shiny plastic.
+      const shade = 13*noise + 2.5*Math.sin(x*.13+y*.23);
+      [r,g,b] = [251+shade*.2, 211+shade*.5, 38+shade*.75];
+    } else if (type === 'steel') {
+      // Horizontal microscopic brushing plus tiny glints.
+      const grain = 9*Math.sin(y*2.9) + 18*noise;
+      [r,g,b] = [172+grain,181+grain,191+grain];
+    } else if (type === 'wood') {
+      const grain = 17*Math.sin(x*.115 + 2*Math.sin(y*.025)) + 14*noise;
+      [r,g,b] = [151+grain,104+grain*.75,66+grain*.50];
+    } else {
+      const shade = 24*noise + 5*Math.sin(x*.55+y*.22);
+      [r,g,b] = [36+shade,39+shade,46+shade];
+    }
+    image.data[i]=Math.max(0,Math.min(255,r));
+    image.data[i+1]=Math.max(0,Math.min(255,g));
+    image.data[i+2]=Math.max(0,Math.min(255,b));
+    image.data[i+3]=255;
+  }
+  ctx.putImageData(image,0,0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return texture;
+}
+function stitchLine(parent, points, color = 0xe8d59b) {
+  const vertices = points.map(p => new THREE.Vector3(...p));
+  const curve = new THREE.CatmullRomCurve3(vertices);
+  const line = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, .0028, 4, false),
+    new THREE.MeshStandardMaterial({color,roughness:.96}));
+  parent.add(line);
+  return line;
+}
+
 function addMesh(parent, geometry, mat, x, y, z) {
   const m = new THREE.Mesh(geometry, mat);
   m.position.set(x, y, z);
@@ -184,11 +265,11 @@ function buildCompanion() {
   const root = new THREE.Group();
   const motion = new THREE.Group();
   root.add(motion);
-  const yellow = material(0xfbe12a);
-  const blue = material(0x2869d3);
+  const yellow = surfaceMats.yellow;
+  const blue = surfaceMats.denim;
   const navy = material(0x111b32);
-  const rubber = material(0x202126);
-  const metal = material(0xb9c4cd, {metalness: .8, roughness: .25});
+  const rubber = surfaceMats.rubber;
+  const metal = surfaceMats.metal;
 
   // Rounded yellow body (approximately 84cm at scale 1; scaled to 12cm in AR).
   addMesh(motion, new THREE.CapsuleGeometry(.17, .37, 10, 24), yellow, 0, .43, 0);
@@ -197,6 +278,9 @@ function buildCompanion() {
   addMesh(motion, new THREE.BoxGeometry(.215, .17, .045), blue, 0, .353, .156);
   const pocket = addMesh(motion, new THREE.BoxGeometry(.085, .06, .012), material(0x1d52ac), 0, .29, .185);
   pocket.rotation.z = .02;
+  // Visible cotton stitching and a tiny embroidered pocket detail.
+  stitchLine(motion, [[-.102,.439,.181],[-.108,.36,.181],[-.105,.278,.178],[-.055,.257,.190],[.055,.257,.190],[.105,.278,.178],[.108,.36,.181],[.102,.439,.181]]);
+  stitchLine(motion, [[-.042,.320,.193],[-.04,.264,.193],[0,.261,.193],[.04,.264,.193],[.042,.320,.193]], 0xb5d8ef);
   for (const side of [-1, 1]) {
     const strap = addMesh(motion, new THREE.BoxGeometry(.052, .15, .035), blue, side * .122, .392, .123);
     strap.rotation.z = side * -.25;
@@ -204,8 +288,13 @@ function buildCompanion() {
   }
   // Black goggle head strap around circumference.
   addMesh(motion, new THREE.CylinderGeometry(.175, .175, .048, 40), rubber, 0, .557, 0);
-  // Chrome goggle rim remains fixed. Inner eye blinks and looks around.
+  // Chrome goggle casing with a machined raised outer rim and four rivets.
   addMesh(motion, new THREE.SphereGeometry(.105, 28, 20), metal, 0, .558, .149);
+  addMesh(motion, new THREE.TorusGeometry(.095,.012,10,48), metal, 0,.558,.271);
+  for (const angle of [0, Math.PI/2, Math.PI, Math.PI*1.5]) {
+    addMesh(motion, new THREE.SphereGeometry(.007,10,8), material(0x707a88,{metalness:.6,roughness:.32}),
+      .1*Math.cos(angle), .558+.1*Math.sin(angle), .267);
+  }
   const eyeBlink = new THREE.Group();
   eyeBlink.position.set(0, .558, 0);
   motion.add(eyeBlink);
@@ -246,6 +335,10 @@ function buildCompanion() {
     motion.add(arm);
     addMesh(arm, new THREE.CylinderGeometry(.028,.028,.19,12), yellow, 0, -.1, 0);
     addMesh(arm, new THREE.SphereGeometry(.04,14,12), rubber, 0, -.205, 0);
+    // Three tiny raised fingers hint at soft gloves without adding heavy assets.
+    for(let finger=-1;finger<=1;finger++) {
+      addMesh(arm,new THREE.SphereGeometry(.012,8,6),rubber,finger*.018,-.218,.024);
+    }
     arm.rotation.z = side * .22;
     arms.push(arm);
   }
@@ -254,6 +347,9 @@ function buildCompanion() {
     addMesh(motion,new THREE.CylinderGeometry(.03,.031,.125,14), blue, side * .065, .112, 0);
     const boot = addMesh(motion,new THREE.SphereGeometry(.055,16,14), rubber, side * .069,.055,.032);
     boot.scale.set(1.0,.65,1.38);
+    // Subtle raised outsole on each boot.
+    const sole=addMesh(motion,new THREE.SphereGeometry(.056,16,12),material(0x171a20,{roughness:.92}), side*.069,.028,.038);
+    sole.scale.set(1,.29,1.36);
   }
   // Three comically unruly hairs.
   for (const [x, tilt] of [[-.033,-.35],[0,0],[.033,.28]]) {
@@ -277,7 +373,7 @@ function buildCompanion() {
 
 function buildChair() {
   const chair = new THREE.Group();
-  const wood = material(0x916545, { roughness: .8 });
+  const wood = surfaceMats.wood;
   const upholstery = material(0x3c7c8b);
   addMesh(chair, new THREE.BoxGeometry(.37,.042,.30), upholstery, 0,.17,-.055);
   addMesh(chair, new THREE.BoxGeometry(.36,.29,.045), wood, 0,.32,-.19);
@@ -347,7 +443,7 @@ function markEngaged() {
 }
 
 function startBreak(now = performance.now() / 1000) {
-  if (!session || !placed || relocating) return;
+  if ((session && !placed) || relocating) return;
   reaction = null;
   breakStarted = now;
   lastBreakStage = -1;
@@ -501,22 +597,183 @@ renderer.domElement.addEventListener('pointerdown', event => {
   if (raycaster.intersectObject(companion.userData.touchZone, false).length) reactToTouch();
 });
 
-function reactToTouch() {
+function react(action) {
   markEngaged();
-  const actions = ['wave','jump','dance','spin','giggle','peek'];
-  reaction = actions[Math.floor(Math.random()*actions.length)];
+  reaction = action;
   reactionStarted = performance.now()/1000;
   const messages = {
     wave: 'Hello! 👋', jump: 'Boing! 🐸', dance: 'Dance time! 💃',
     spin: 'Wheeee! 🌀', giggle: 'Hehehe! 😄', peek: 'Peekaboo! 👀'
   };
-  setStatus('Bello: ' + messages[reaction]);
-  chirp(reaction);
+  setStatus('Bello: ' + (messages[action] || 'Here I am!'));
+  chirp(action);
+}
+function reactToTouch() {
+  const actions = ['wave','jump','dance','spin','giggle','peek'];
+  react(actions[Math.floor(Math.random()*actions.length)]);
 }
 
 playButton.addEventListener('click', () => {
   if (placed && session) reactToTouch();
 });
+
+// Voice v0.6: short push-to-talk commands (no always-on microphone).
+// Android Chrome typically exposes webkitSpeechRecognition. Its engine may
+// use an online speech service; we do not record, save or upload any audio.
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let speechRecognizer = null;
+let listening = false;
+let voiceError = '';
+let toastTimer = null;
+function showVoiceToast(message) {
+  voiceToast.textContent = message;
+  voiceToast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { voiceToast.hidden = true; }, 5200);
+}
+function setListening(active) {
+  listening = active;
+  micButton.setAttribute('aria-pressed', String(active));
+  previewMicButton.setAttribute('aria-pressed', String(active));
+  micButton.textContent = active ? '🛑 Stop' : '🎙 Talk';
+  previewMicButton.textContent = active ? '🛑 Stop listening' : '🎙 Test voice in preview';
+}
+function say(shortLine) {
+  if (!voiceRepliesEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(shortLine);
+    utterance.lang = 'en-US';
+    utterance.rate = 1.18;
+    utterance.pitch = 1.35;
+    utterance.volume = .76;
+    window.speechSynthesis.speak(utterance);
+  } catch (_error) { /* Speech output is optional. */ }
+}
+function runCommand(raw) {
+  const phrase = String(raw || '').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  showVoiceToast('Heard: “' + raw + '”');
+  if (!phrase) return;
+  let reply = '';
+  // STOP and WAKE first, so "stop dancing" never triggers "dance".
+  if (/\b(stop|enough|freeze|be still)\b/.test(phrase)) {
+    markEngaged(); reaction = null; reply = 'Okay, stopping!';
+  } else if (/\b(wake|stand up|get up|hello|hi bello)\b/.test(phrase)) {
+    markEngaged(); chirp('hello'); reply = 'I am here!';
+  } else if (/\b(read|magazine|book|chair|sit down|take a break|relax)\b/.test(phrase)) {
+    markEngaged();
+    if (session && !placed) reply = 'Place me first!';
+    else { startBreak(); reply = 'Time to read!'; }
+  } else if (/\b(dance|boogie|groove)\b/.test(phrase)) {
+    react('dance'); reply = 'Dance time!';
+  } else if (/\b(jump|hop|bounce)\b/.test(phrase)) {
+    react('jump'); reply = 'Boing!';
+  } else if (/\b(wave|say hi|say hello)\b/.test(phrase)) {
+    react('wave'); reply = 'Hello!';
+  } else if (/\b(spin|turn around|twirl)\b/.test(phrase)) {
+    react('spin'); reply = 'Wheee!';
+  } else if (/\b(laugh|giggle|funny)\b/.test(phrase)) {
+    react('giggle'); reply = 'Hee hee!';
+  } else if (/\b(peek|hide)\b/.test(phrase)) {
+    react('peek'); reply = 'Peekaboo!';
+  } else if (/\b(smaller|shrink|tiny)\b/.test(phrase)) {
+    markEngaged(); heightCm = Math.max(MIN_HEIGHT_CM, heightCm-HEIGHT_STEP_CM); applyARSize(); reply='Smaller!';
+  } else if (/\b(bigger|larger|grow)\b/.test(phrase)) {
+    markEngaged(); heightCm = Math.min(MAX_HEIGHT_CM, heightCm+HEIGHT_STEP_CM); applyARSize(); reply='Bigger!';
+  } else if (/\b(move|relocate|another spot)\b/.test(phrase)) {
+    if (session && placed && !relocating) { moveButton.click(); reply='Pick my new spot!'; }
+    else reply='Place me first!';
+  } else if (/\b(mute|quiet|silence|sound off)\b/.test(phrase)) {
+    markEngaged(); soundEnabled=false; soundButton.textContent='🔇 Off'; soundButton.setAttribute('aria-pressed','false'); reply='Quiet mode!';
+  } else if (/\b(unmute|sound on|make noise)\b/.test(phrase)) {
+    markEngaged(); soundEnabled=true; soundButton.textContent='🔊 On'; soundButton.setAttribute('aria-pressed','true'); reply='Sounds on!';
+  } else {
+    markEngaged();
+    reply = 'I know dance, jump, wave, spin, read and wake!';
+  }
+  setStatus('Bello: ' + reply);
+  // Reply after the capture is complete, avoiding speaker-to-microphone feedback.
+  // If a browser doesn't deliver onend, the status still tells you the result.
+  if (speechRecognizer && listening) {
+    pendingReply = reply;
+  } else say(reply);
+}
+let pendingReply = '';
+function stopListening() {
+  if (speechRecognizer && listening) {
+    try { speechRecognizer.stop(); } catch (_) { setListening(false); }
+  }
+}
+function toggleListening() {
+  markEngaged();
+  if (!Recognition) {
+    showVoiceToast('Voice recognition is not supported in this browser. Try Chrome on Android.');
+    return;
+  }
+  if (listening) { stopListening(); return; }
+  // An explicit tap is required by mobile browsers to ask for mic permission.
+  try {
+    const recog = new Recognition();
+    speechRecognizer = recog;
+    voiceError = '';
+    pendingReply = '';
+    recog.lang='en-US';
+    recog.continuous=false;
+    recog.interimResults=false;
+    recog.maxAlternatives=1;
+    recog.onstart = () => {
+      if (speechRecognizer !== recog) return;
+      setListening(true);
+      showVoiceToast('Listening… say “Bello, dance!”');
+    };
+    recog.onresult = event => {
+      if (speechRecognizer !== recog) return;
+      const transcript = event.results[0]?.[0]?.transcript || '';
+      runCommand(transcript);
+    };
+    recog.onerror = event => {
+      if (speechRecognizer !== recog) return;
+      voiceError = event.error || 'unknown';
+      pendingReply = '';
+      const hints = {
+        'not-allowed':'Microphone permission denied. Check Chrome site permissions.',
+        'no-speech':'I did not hear a command. Try again.',
+        'network':'Speech recognition needs network access in this browser.',
+        'audio-capture':'The microphone is busy or unavailable.'
+      };
+      showVoiceToast(hints[voiceError] || 'Voice recognition: '+voiceError);
+    };
+    recog.onend = () => {
+      if (speechRecognizer !== recog) return;
+      setListening(false);
+      speechRecognizer = null;
+      if (pendingReply && !voiceError) say(pendingReply);
+      pendingReply = '';
+    };
+    recog.start();
+  } catch (error) {
+    speechRecognizer=null;
+    setListening(false);
+    showVoiceToast('Could not start microphone: '+error.message);
+  }
+}
+micButton.addEventListener('click', toggleListening);
+previewMicButton.addEventListener('click', toggleListening);
+voiceRepliesButton.addEventListener('click', () => {
+  markEngaged();
+  voiceRepliesEnabled = !voiceRepliesEnabled;
+  voiceRepliesButton.textContent = voiceRepliesEnabled ? '🗣 Replies: On' : '🗣 Replies: Off';
+  voiceRepliesButton.setAttribute('aria-pressed', String(voiceRepliesEnabled));
+  if (!voiceRepliesEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+});
+for (const chip of commandButtons) {
+  chip.addEventListener('click', () => runCommand(chip.dataset.belloCommand));
+}
+if (!Recognition) {
+  micButton.disabled = previewMicButton.disabled = true;
+  micButton.title = 'Speech recognition not supported in this browser';
+  previewMicButton.title = 'Speech recognition not supported in this browser';
+}
 
 async function checkSupport() {
   if (!navigator.xr || !window.isSecureContext) {
@@ -586,6 +843,8 @@ button.addEventListener('click', async () => {
 });
 
 function onSessionEnd() {
+  stopListening();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (hitTestSource) hitTestSource.cancel();
   hitTestSource = null;
   hitTestRequested = false;

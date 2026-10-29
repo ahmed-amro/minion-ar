@@ -1,43 +1,40 @@
-# Bello AR — v0.5 · Bring Bello to life
+# Bello AR — v0.6: voice commands + textured 3D appearance
 
-**Builds directly on the working v0.4 desk-life version.** The character, AR placement, 6–24 cm size controls, Move Bello, automatic chair-and-magazine routine, and manual break controls all remain.
+This is a drop-in update for your existing `minion-ar` GitHub Pages repository. It preserves the functioning v0.5 WebXR placement, touch interactions, 6–24 cm resizing, relocation, sounds, and autonomous chair/magazine routine.
 
-## What's new
+## New in v0.6
 
-- **Touch Bello, not the background.** Android WebXR screen taps are raycast against Bello's 3D body; tapping the empty desk no longer launches an animation or wakes him. In ordinary 3D preview, tapping Bello with a mouse/finger works too.
-- **6 reactions:** wave, jump, dance, spin, giggle, and peekaboo; selected at random when he is tapped.
-- **Expressive face:** Bello blinks and occasionally shifts his gaze. His mouth changes for surprised/giggling reactions. This is an *animation*, not camera eye tracking.
-- **Original cartoon sound effects** synthesized locally with Web Audio. No sound assets or copyrighted recordings. **🔊 On / 🔇 Off** toggle included. Chrome may block audio until you explicitly tap a control or interact.
-- **Smaller AR overlay:** Place/move and size controls remain on the bottom row. Tap the **⋯** button to expand extra controls: **Play ✨** (manual animation fallback), **Try a break ☕ / Wake Bello**, **Auto: On / Off**, and **Sound On / Off**.
-- **Quiet-life behavior still works:** Bello stands and reacts while you engage with him; after 30 seconds of no direct interaction, he gets his chair and reads. **Play** and the reaction tap wake him up immediately. `Auto: Off` disables automatic breaks without removing the manual break demo.
+- **🎙 Talk (push-to-talk):** Tap once and say a short English voice command, then Bello performs it. The mic only listens after you press the button; it is not a persistent AI listener. Some Android WebXR sessions may refuse simultaneous mic use, so test preview first.
+- **Supported voice commands** (you may say *Bello* first, or not): `dance`, `jump`, `wave`, `spin`, `giggle` / `laugh`, `peekaboo`, `read your magazine`, `take a break`, `wake up`, `stop`, `bigger`, `smaller`, `move`, `mute`, `sound on`.
+- **Spoken reply option:** Short synthesized English replies using the device's text-to-speech voices. Toggle **🗣 Replies: On/Off** in **⋯**. The existing original cartoon chirps can be muted separately.
+- **Fallback controls:** Under **⋯**, buttons for Dance / Jump / Wave / Read / Wake if the microphone fails in immersive AR.
+- **Test voice in preview:** Before starting AR, use the `🎙 Test voice in preview` button. Try *Bello, dance!* to confirm speech recognition on your phone first.
+- **Improved surface appearance:** Textured denim weave, matte yellow skin grain, brushed metallic goggles, slightly rough gloves/boots, wood-grain chair, extra clothing stitching, goggle rivets, glove fingers, and shoe soles. All materials/textures are generated in JavaScript on the device with small 256×256 canvases. No external 3D files, asset downloads, or image licenses.
 
-## How to deploy to GitHub Pages
+## Deploy via GitHub Pages
 
-1. Extract the ZIP, then open `https://github.com/ahmed-amro/minion-ar` in your browser.
-2. On the **Code** tab, select **Add file → Upload files**.
-3. Upload and replace **`index.html`, `app.js`, and `style.css`** in the repository **root**, then commit to `main`. Leave the existing `.nojekyll` in place.
-4. In **Actions**, wait for the Pages deployment to show a green checkmark.
-5. Open `https://ahmed-amro.github.io/minion-ar/` in Chrome. Confirm **PROTOTYPE 0.5** appears. If not, reload the page or close/reopen its tab.
+1. Extract the ZIP.
+2. Open `https://github.com/ahmed-amro/minion-ar` → **Code** → **Add file** → **Upload files**.
+3. Replace `index.html`, `app.js`, `style.css` in the repo root, then **Commit changes**. Keep the existing `.nojekyll` and README if you wish.
+4. Wait for **Actions** → successful Pages deployment.
+5. Open `https://ahmed-amro.github.io/minion-ar/` in Chrome, and check that the top says **PROTOTYPE 0.6**. Reload if an old version is cached.
 
-## Quick phone acceptance test
+## Phone test
 
-1. Press **Start AR**, scan a table, tap the white ring, and confirm 12-cm Bello appears.
-2. Tap **empty table** away from Bello: no reaction should play.
-3. Tap **Bello** himself: he should wave, jump, dance, spin, giggle, or play peekaboo, with a gentle electronic cartoon sound if audio is on.
-4. Tap **⋯** then **Play ✨**: a reaction should play even if the Android XR touch ray needs calibration.
-5. Turn **🔊 Off** and trigger another reaction: it should be silent. Turn it back on.
-6. Try **Move Bello** and the **−/+** controls: check that relocation and 6–24 cm scaling still work.
-7. Tap **⋯ → Try a break ☕**: he should bring his chair, sit, and read. Tap Bello to wake him, or press **Wake Bello**.
-8. Leave the AR view idle for 30 seconds with **Auto: On** to watch him initiate the routine himself.
+1. In 3D preview, tap **🎙 Test voice in preview** and allow the microphone. Say **“Bello, dance!”**. The status should display the recognized phrase and Bello should dance.
+2. Press **Start AR**, place Bello on a flat surface, then press **🎙 Talk** and say **“Bello, jump!”**. The spoken reply uses your device's speech engine if enabled.
+3. Try **“Bello, read your magazine!”**, then **“Bello, wake up!”**.
+4. Check that the normal tapping, **Move Bello**, **− / +**, **⋯ → Play**, **Auto: On**, and **sound toggle** still work.
+5. If the microphone does not work during immersive AR, first check whether it works in **3D preview**. Then use the command buttons in **⋯** as a fallback, and report the error toast / screenshot.
 
-## Current limitations
+## Important limitations
 
-- Attention is based on user taps/control activity, **not** eye tracking, gaze recognition, microphone, or presence detection.
-- Desk edges, obstacles, and furniture are not mapped; he stays close to his anchored location instead of walking freely.
-- A screen-space touch is converted to a WebXR 3D target ray. Different phone XR runtimes can vary; **Play ✨** is a fallback if direct tapping misses. If that happens, report the phone browser and a screenshot so we can calibrate hit testing.
-- Sounds are short **original synthesized tones**, not speech. A voice and AI integration are future roadmap milestones.
-- GitHub Pages serves static files over HTTPS; there is no Python backend, API key, voice recording, or camera upload in this version.
+- **Voice commands are not conversational AI**. This milestone uses command matching and the browser's built-in speech recognition and speech synthesis. Natural, open-ended conversation will be a later milestone with an AI backend/API.
+- **Speech recognition is browser-dependent.** Chrome on Android commonly provides `webkitSpeechRecognition`, but it may be unavailable or fail while WebXR is active. This app disables the mic button if no recognition API exists and offers manual alternatives.
+- **Speech privacy:** this project does not record, save, or send audio to our server. However, browser speech recognition on Android may use a remote speech service; microphone input may be processed by the browser/provider. GitHub Pages hosts only static files.
+- **The new textures are a visually richer procedural 3D model, not a film-quality rigged GLB character.** The next art step would be replacing the procedural mesh with an original custom textured/rigged GLB model, while keeping the AR and voice code.
+- The idle timer measures interaction with the app, **not** whether you actually look at Bello. Desk-edge avoidance remains unimplemented.
 
-## Technical notes
+## Implementation
 
-Three.js 0.160 via CDN/import map; WebXR `immersive-ar` with `hit-test` required and DOM overlay optional; `local` reference space. Hit tests are for placement. XR session `select` events provide the `XRInputSource.targetRaySpace` ray for touching the character, independent of the surface reticle. A transparent 3D hit zone is attached to Bello. Web Audio is user-initiated and optional.
+Three.js 0.160 via CDN with a strict import map; `immersive-ar`, `hit-test`, optional `dom-overlay`, `local` reference space; local CanvasTextures and WebAudio; Web Speech API for push-to-talk; SpeechSynthesis for short voice replies. No Python, billing, API keys, authentication, or backend required.

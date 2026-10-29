@@ -1,10 +1,42 @@
 import * as THREE from 'three';
 
-// Bello 0.1 — entirely client-side, no camera upload, AI or API required.
+// Bello 0.3 — entirely client-side, no camera upload, AI or API required.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
 const tip = document.getElementById('tip');
+const overlay = document.getElementById('overlay');
+const arControls = document.getElementById('arControls');
+const moveButton = document.getElementById('moveButton');
+const smallerButton = document.getElementById('smallerButton');
+const largerButton = document.getElementById('largerButton');
+const sizeLabel = document.getElementById('sizeLabel');
+
+// Prevent clicks on controls from also registering as AR scene taps.
+overlay.addEventListener('beforexrselect', (event) => {
+  if (event.target.closest('button')) event.preventDefault();
+});
+
+// Built model is ~84 cm tall at scale 1; 12 cm is a comfortable desk companion.
+const MODEL_HEIGHT_METERS = 0.84;
+const MIN_HEIGHT_CM = 6;
+const MAX_HEIGHT_CM = 24;
+const HEIGHT_STEP_CM = 2;
+let heightCm = 12;
+function applyARSize() {
+  sizeLabel.textContent = `${heightCm} cm`;
+  smallerButton.disabled = heightCm <= MIN_HEIGHT_CM;
+  largerButton.disabled = heightCm >= MAX_HEIGHT_CM;
+  if (session) companion.scale.setScalar((heightCm / 100) / MODEL_HEIGHT_METERS);
+}
+smallerButton.addEventListener('click', () => {
+  heightCm = Math.max(MIN_HEIGHT_CM, heightCm - HEIGHT_STEP_CM);
+  applyARSize();
+});
+largerButton.addEventListener('click', () => {
+  heightCm = Math.min(MAX_HEIGHT_CM, heightCm + HEIGHT_STEP_CM);
+  applyARSize();
+});
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 30);
@@ -45,7 +77,7 @@ const companion = buildCompanion();
 scene.add(companion);
 
 const reticle = new THREE.Mesh(
-  new THREE.RingGeometry(0.105, 0.135, 40).rotateX(-Math.PI / 2),
+  new THREE.RingGeometry(0.032, 0.040, 40).rotateX(-Math.PI / 2),
   new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
 );
 reticle.matrixAutoUpdate = false;
@@ -60,6 +92,7 @@ let session = null;
 let hitTestSource = null;
 let hitTestRequested = false;
 let placed = false;
+let relocating = false;
 let reaction = null;
 let reactionStarted = 0;
 let anchorRotation = 0;
@@ -88,7 +121,7 @@ function buildCompanion() {
   const rubber = material(0x202126);
   const metal = material(0xb9c4cd, {metalness: .8, roughness: .25});
 
-  // Rounded yellow body (approximately 75cm tall in real-world AR units).
+  // Rounded yellow body (approximately 84cm at scale 1; scaled to 12cm in AR).
   addMesh(motion, new THREE.CapsuleGeometry(.17, .37, 10, 24), yellow, 0, .43, 0);
   // Overall trousers and bib.
   addMesh(motion, new THREE.CylinderGeometry(.167, .155, .23, 32), blue, 0, .25, 0);
@@ -182,12 +215,18 @@ button.addEventListener('click', async () => {
     session = requested;
     requested.addEventListener('end', onSessionEnd, { once: true });
     await renderer.xr.setSession(requested);
+    document.body.classList.add('xr-active');
     button.textContent = 'Exit AR';
-    instruction.textContent = 'Find a flat surface, then tap the white ring to place Bello. Tap again for a surprise!';
+    companion.scale.setScalar((heightCm / 100) / MODEL_HEIGHT_METERS);
+    arControls.hidden = true;
+    moveButton.textContent = 'Move Bello';
+    relocating = false;
+    instruction.textContent = 'Scan a surface and tap the ring to place Bello.';
     companion.visible = false;
     previewBase.visible = false;
     tip.hidden = false;
-    setStatus('Look around to find a surface…');
+    applyARSize();
+    setStatus('Scan your desk for the white circle…');
   } catch (error) {
     // Clean up an XR session if the Three.js renderer fails to initialize it.
     if (requested) {
@@ -207,18 +246,45 @@ function onSessionEnd() {
   hitTestRequested = false;
   session = null;
   placed = false;
+  relocating = false;
+  arControls.hidden = true;
+  moveButton.textContent = 'Move Bello';
+  document.body.classList.remove('xr-active');
   reticle.visible = false;
   tip.hidden = true;
   previewBase.visible = true;
   companion.visible = true;
   companion.position.set(0,0,0);
   companion.rotation.set(0,0,0);
+  companion.scale.setScalar(1);
   companion.userData.motion.position.y = 0;
   companion.userData.motion.rotation.y = 0;
   instruction.textContent = 'Open AR again to place your companion anywhere.';
   button.textContent = 'Start AR';
   setStatus('Back in 3D preview.');
 }
+
+// Keep Bello anchored in AR while allowing repeated placement without exiting AR.
+moveButton.addEventListener('click', () => {
+  if (!session) return;
+  if (relocating) {
+    // Cancel relocation: restore Bello at his previous placement.
+    relocating = false;
+    placed = true;
+    companion.visible = true;
+    reticle.visible = false;
+    tip.hidden = true;
+    moveButton.textContent = 'Move Bello';
+    setStatus('Move canceled. Bello stayed where he was.');
+  } else if (placed) {
+    relocating = true;
+    placed = false;
+    companion.visible = false;
+    tip.hidden = false;
+    moveButton.textContent = 'Cancel Move';
+    setStatus('Point at a new spot and tap the white circle.');
+  }
+});
 
 function handleTap() {
   if (!session) return;
@@ -235,9 +301,12 @@ function handleTap() {
     companion.rotation.y = anchorRotation;
     companion.visible = true;
     placed = true;
+    relocating = false;
+    arControls.hidden = false;
+    moveButton.textContent = 'Move Bello';
     reticle.visible = false;
     tip.hidden = true;
-    setStatus('Bello is here! Tap the screen to make him react.');
+    setStatus('Bello is here! Tap anywhere to make him react.');
     return;
   }
   // Tap anywhere after placement, intentionally forgiving for a first prototype.

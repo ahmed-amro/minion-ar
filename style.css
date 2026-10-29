@@ -13,3 +13,18 @@ button:disabled { opacity: .56; cursor: default; }
 #status { min-height: 18px; margin-top: 9px; color: #c7d5e7; font-size: 12px; }
 .tip { position: absolute; bottom: calc(42px + env(safe-area-inset-bottom)); left: 50%; width: max-content; max-width: min(90vw,400px); transform: translateX(-50%); border-radius: 999px; background: #111c2cde; padding: 10px 16px; text-align: center; font-size: 13px; box-shadow: 0 6px 24px #0007; }
 @media (max-width: 420px) { .panel { max-width: none; } h1 { font-size: 20px; } }
+
+/* Compact controls leave most of the real-world view visible in AR. */
+[hidden] { display: none !important; }
+.ar-controls { pointer-events: auto; position: absolute; bottom: calc(24px + env(safe-area-inset-bottom)); left: 12px; right: 12px; display: flex; gap: 8px; align-items: stretch; justify-content: center; max-width: 520px; margin: 0 auto; }
+.ar-controls button { min-height: 46px; }
+.move-button { flex: 1; padding: 0 12px; }
+.size-control { display: flex; align-items: center; gap: 0; background: rgba(15, 25, 42, .9); padding: 3px; border: 1px solid #ffffff33; border-radius: 12px; }
+.size-control button { width: 44px; min-height: 42px; background: #ffffff24; color: white; font-size: 22px; }
+.size-control output { width: 58px; text-align: center; font-size: 14px; font-weight: 800; white-space: nowrap; }
+body.xr-active .panel { max-width: min(420px, calc(100vw - 24px)); margin-top: calc(8px + env(safe-area-inset-top)); padding: 10px 12px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; align-items: center; }
+body.xr-active .eyebrow, body.xr-active .panel p { display: none; }
+body.xr-active .panel h1 { grid-column: 1; grid-row: 1; font-size: 16px; margin: 0; }
+body.xr-active .panel #status { grid-column: 1; grid-row: 2; margin-top: 0; font-size: 11px; min-height: 14px; }
+body.xr-active #arButton { grid-column: 2; grid-row: 1 / span 2; width: auto; padding: 8px 12px; min-height: 40px; font-size: 13px; }
+body.xr-active .tip { bottom: calc(84px + env(safe-area-inset-bottom)); font-size: 12px; }

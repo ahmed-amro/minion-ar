@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { Conversation, isDirectCommand } from './conversation.js?v=0.7.0';
 
-// Bello 0.6 — voice commands, tactile material textures, expressive AR desk companion.
+// Bello 0.7.0 — voice commands, tactile material textures, expressive AR desk companion.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -23,6 +24,10 @@ const voiceRepliesButton = document.getElementById('voiceRepliesButton');
 const voiceToast = document.getElementById('voiceToast');
 const commandButtons = [...document.querySelectorAll('[data-bello-command]')];
 let voiceRepliesEnabled = true;
+const conversation = new Conversation();
+let conversationState = 'idle';
+let engagementEpoch = 0;
+let speechEpoch = 0;
 
 let soundEnabled = true;
 let audioContext = null;
@@ -79,7 +84,7 @@ soundButton.addEventListener('click', () => {
 
 // Prevent clicks on controls from also registering as AR scene taps.
 overlay.addEventListener('beforexrselect', (event) => {
-  if (event.target.closest('button')) event.preventDefault();
+  if (event.target.closest('button, input, form, details, .conversation-panel')) event.preventDefault();
 });
 
 // Built model is ~84 cm tall at scale 1; 12 cm is a comfortable desk companion.
@@ -547,7 +552,7 @@ function animateFace(t) {
   d.closedEyeLine.visible = closeAmount > .90;
   d.gaze.position.x = .012*Math.sin(t*.85) + .005*Math.sin(t*1.9);
   d.gaze.position.y = .008*Math.sin(t*.62);
-  d.surpriseMouth.visible = reaction === 'jump' || reaction === 'giggle' || reaction === 'peek';
+  d.surpriseMouth.visible = (conversationState === 'speaking' && Math.sin(t*14) > -.25) || reaction === 'jump' || reaction === 'giggle' || reaction === 'peek';
   d.smile.visible = !d.surpriseMouth.visible;
 }
 
@@ -609,6 +614,7 @@ function react(action) {
   chirp(action);
 }
 function reactToTouch() {
+  cancelConversation();
   const actions = ['wave','jump','dance','spin','giggle','peek'];
   react(actions[Math.floor(Math.random()*actions.length)]);
 }
@@ -639,6 +645,8 @@ function setListening(active) {
   previewMicButton.textContent = active ? '🛑 Stop listening' : '🎙 Test voice in preview';
 }
 function say(shortLine) {
+  const epoch = ++speechEpoch;
+  conversationState = 'idle';
   if (!voiceRepliesEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
   try {
     window.speechSynthesis.cancel();
@@ -647,8 +655,14 @@ function say(shortLine) {
     utterance.rate = 1.18;
     utterance.pitch = 1.35;
     utterance.volume = .76;
+    conversationState = 'speaking';
+    utterance.onend = utterance.onerror = () => {
+      if (epoch !== speechEpoch) return;
+      conversationState = 'idle'; lastEngagement = performance.now() / 1000;
+      if (conversation.enabled) updateConversationStatus('AI ready. Tap Talk for another turn.');
+    };
     window.speechSynthesis.speak(utterance);
-  } catch (_error) { /* Speech output is optional. */ }
+  } catch (_error) { conversationState = 'idle'; /* Speech output is optional. */ }
 }
 function runCommand(raw) {
   const phrase = String(raw || '').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
@@ -711,6 +725,7 @@ function toggleListening() {
     return;
   }
   if (listening) { stopListening(); return; }
+  cancelConversation();
   // An explicit tap is required by mobile browsers to ask for mic permission.
   try {
     const recog = new Recognition();
@@ -724,12 +739,15 @@ function toggleListening() {
     recog.onstart = () => {
       if (speechRecognizer !== recog) return;
       setListening(true);
+      conversationState = 'listening';
+      updateConversationStatus('Listening…');
       showVoiceToast('Listening… say “Bello, dance!”');
     };
+    let transcript = "";
     recog.onresult = event => {
       if (speechRecognizer !== recog) return;
-      const transcript = event.results[0]?.[0]?.transcript || '';
-      runCommand(transcript);
+      transcript = event.results[0]?.[0]?.transcript || '';
+      showVoiceToast('Heard: “' + transcript + '”');
     };
     recog.onerror = event => {
       if (speechRecognizer !== recog) return;
@@ -747,7 +765,9 @@ function toggleListening() {
       if (speechRecognizer !== recog) return;
       setListening(false);
       speechRecognizer = null;
-      if (pendingReply && !voiceError) say(pendingReply);
+      conversationState = 'idle';
+      if (transcript && !voiceError) void handleUtterance(transcript);
+      else { lastEngagement = performance.now() / 1000; updateConversationStatus('Microphone stopped. Tap Talk to try again.'); }
       pendingReply = '';
     };
     recog.start();
@@ -764,16 +784,131 @@ voiceRepliesButton.addEventListener('click', () => {
   voiceRepliesEnabled = !voiceRepliesEnabled;
   voiceRepliesButton.textContent = voiceRepliesEnabled ? '🗣 Replies: On' : '🗣 Replies: Off';
   voiceRepliesButton.setAttribute('aria-pressed', String(voiceRepliesEnabled));
-  if (!voiceRepliesEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  if (!voiceRepliesEnabled && window.speechSynthesis) { speechEpoch++; window.speechSynthesis.cancel(); conversationState = 'idle'; markEngaged(); }
 });
 for (const chip of commandButtons) {
-  chip.addEventListener('click', () => runCommand(chip.dataset.belloCommand));
+  chip.addEventListener('click', () => { cancelConversation(); runCommand(chip.dataset.belloCommand); });
 }
 if (!Recognition) {
   micButton.disabled = previewMicButton.disabled = true;
   micButton.title = 'Speech recognition not supported in this browser';
   previewMicButton.title = 'Speech recognition not supported in this browser';
 }
+
+// The optional conversation layer never participates in AR initialization.
+const conversationToggle = document.getElementById('conversationToggle');
+const conversationPanel = document.getElementById('conversationPanel');
+const connectionStatus = document.getElementById('conversationStatus');
+const chatLog = document.getElementById('conversationText');
+const addressInput = document.getElementById('backendAddress');
+const pairingInput = document.getElementById('pairingCode');
+const connectButton = document.getElementById('connectButton');
+function updateConversationStatus(text) {
+  connectionStatus.textContent = text;
+  conversationToggle.textContent = conversation.enabled ? '💬 AI connected' : '💬 Local mode';
+}
+function chatLine(speaker, text) {
+  const line = document.createElement('div');
+  line.textContent = speaker + ': ' + text;
+  chatLog.append(line);
+  while (chatLog.children.length > 12) chatLog.firstChild.remove();
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+function cancelConversation() {
+  engagementEpoch++;
+  conversation.cancel();
+  if (speechRecognizer) {
+    const old = speechRecognizer;
+    speechRecognizer = null;
+    try { old.abort(); } catch (_) {}
+  }
+  pendingReply = '';
+  setListening(false);
+  speechEpoch++;
+  window.speechSynthesis?.cancel();
+  conversationState = 'idle';
+  markEngaged();
+}
+async function handleUtterance(raw) {
+  const text = String(raw).trim();
+  if (!text) return;
+  cancelConversation();
+  chatLine('You', text);
+  // v0.6's full parser is retained whenever AI is disabled. In AI mode only
+  // unambiguous commands bypass the model, avoiding keyword collisions.
+  if (!conversation.enabled || isDirectCommand(text)) {
+    runCommand(text);
+    updateConversationStatus(conversation.enabled ? 'AI ready. Local command handled instantly.' : 'Local commands ready. Laptop connection is optional.');
+    return;
+  }
+  const epoch = engagementEpoch;
+  conversationState = 'thinking';
+  updateConversationStatus('Thinking…');
+  setStatus('Bello is thinking…');
+  try {
+    const result = await conversation.turn(text);
+    if (epoch !== engagementEpoch) return;
+    conversationState = 'idle';
+    if (result.action !== 'none') react(result.action);
+    markEngaged();
+    chatLine('Bello', result.reply);
+    setStatus('Bello: ' + result.reply);
+    updateConversationStatus('AI ready · ' + result.remaining_today + ' attempts left today');
+    say(result.reply);
+  } catch (_) {
+    if (epoch !== engagementEpoch) return;
+    conversation.disconnect();
+    conversationState = 'idle';
+    updateConversationStatus('Laptop or AI unavailable. Local voice commands are active; reconnect when ready.');
+    // Replay the same phrase through v0.6, without requiring another mic tap.
+    runCommand(text);
+  }
+}
+conversationToggle.addEventListener('click', () => {
+  conversationPanel.hidden = !conversationPanel.hidden;
+  conversationToggle.setAttribute('aria-expanded', String(!conversationPanel.hidden));
+});
+document.getElementById('closeConversation').addEventListener('click', () => {
+  conversationPanel.hidden = true; conversationToggle.setAttribute('aria-expanded', 'false');
+});
+document.getElementById('connectForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  cancelConversation();
+  const epoch = engagementEpoch;
+  connectButton.disabled = true;
+  updateConversationStatus('Connecting to laptop… allow local-network access if Chrome asks.');
+  try {
+    const result = await conversation.connect(addressInput.value, pairingInput.value);
+    if (epoch !== engagementEpoch) { conversation.disconnect(); return; }
+    updateConversationStatus('AI ready · ' + result.model + ' · ' + result.daily_limit + ' attempts/day');
+    pairingInput.value = '';
+    document.getElementById('connectionDetails').open = false;
+  } catch (_) {
+    if (epoch === engagementEpoch) {
+      conversation.disconnect();
+      updateConversationStatus('Could not connect. Check address, pairing code, Wi-Fi and network permission. Local commands still work.');
+    }
+  } finally { connectButton.disabled = false; }
+});
+document.getElementById('textForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const input = document.getElementById('messageInput');
+  const text = input.value.trim(); input.value = '';
+  void handleUtterance(text);
+});
+document.getElementById('stopConversation').addEventListener('click', () => {
+  cancelConversation(); reaction = null; updateConversationStatus('Stopped. Tap Talk when ready.');
+});
+document.getElementById('clearConversation').addEventListener('click', () => {
+  cancelConversation(); conversation.clear(); chatLog.replaceChildren();
+  updateConversationStatus('Conversation cleared from this browser session.');
+});
+document.getElementById('localMode').addEventListener('click', () => {
+  cancelConversation(); conversation.disconnect(); pairingInput.value = '';
+  updateConversationStatus('Local voice commands active. No laptop needed.');
+});
+window.addEventListener('pagehide', () => { cancelConversation(); conversation.disconnect(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) cancelConversation(); });
 
 async function checkSupport() {
   if (!navigator.xr || !window.isSecureContext) {
@@ -843,7 +978,7 @@ button.addEventListener('click', async () => {
 });
 
 function onSessionEnd() {
-  stopListening();
+  cancelConversation();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (hitTestSource) hitTestSource.cancel();
   hitTestSource = null;
@@ -928,7 +1063,7 @@ function handleTap(event) {
 function animate(time) {
   const t = time / 1000;
   animateFace(t);
-  if (session && placed && !relocating && autoEnabled && breakStarted === null
+  if (session && placed && !relocating && autoEnabled && conversationState === 'idle' && breakStarted === null
       && t - lastEngagement > IDLE_DELAY_SECONDS) startBreak(t);
   const d = companion.userData;
   if (breakStarted !== null) {
@@ -940,6 +1075,8 @@ function animate(time) {
   let spin = .045 * Math.sin(t * 1.5);
   let left = -.22 + .07 * Math.sin(t * 1.7);
   let right = .22 - .07 * Math.sin(t * 1.7);
+  if (conversationState === 'thinking') spin = .10*Math.sin(t*3);
+  if (conversationState === 'listening') right = .7;
   const elapsed = t - reactionStarted;
   if (reaction && elapsed >= 0 && elapsed < 1.8) {
     if (reaction === 'wave') right = 2.45 + .3 * Math.sin(elapsed * 13);

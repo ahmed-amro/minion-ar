@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#182334">
-  <title>Bello — Little AR Companion v0.6</title>
+  <title>Bello — Little AR Companion v0.7.0</title>
   <link rel="stylesheet" href="./style.css?v=0.6">
   <script type="importmap">
     {
@@ -17,7 +17,7 @@
 <body>
   <div id="overlay">
     <section class="panel">
-      <div class="eyebrow">PROTOTYPE 0.6 · AR COMPANION</div>
+      <div class="eyebrow">PROTOTYPE 0.7.0 · AR COMPANION</div>
       <h1>Meet Bello <span aria-hidden="true">👋</span></h1>
       <p id="instruction">Place Bello on your desk, then tap or talk to him. Try “Bello, dance!”</p>
       <button id="arButton" disabled>Checking AR support…</button>
@@ -50,6 +50,23 @@
         <button id="moreButton" class="more-button" type="button" aria-controls="extras" aria-expanded="false" aria-label="Show extra Bello controls">⋯</button>
       </div>
     </div>
+    <button id="conversationToggle" class="conversation-toggle" type="button" aria-expanded="false" aria-controls="conversationPanel">💬 Local mode</button>
+    <section id="conversationPanel" class="conversation-panel" hidden aria-label="Bello conversation">
+      <div class="conversation-heading"><strong>Talk with Bello</strong><button id="closeConversation" type="button" aria-label="Close conversation panel">×</button></div>
+      <p id="conversationStatus" role="status" aria-live="polite">Local commands ready. Laptop connection is optional.</p>
+      <details id="connectionDetails">
+        <summary>Connect to laptop</summary>
+        <form id="connectForm">
+          <label>Laptop address<input id="backendAddress" type="url" placeholder="http://192.168.1.50:8000" required autocomplete="off"></label>
+          <label>Pairing code from laptop window<input id="pairingCode" type="password" required autocomplete="off" placeholder="Not your OpenAI API key"></label>
+          <button id="connectButton" type="submit">Connect AI</button>
+        </form>
+        <p>Only connect on a trusted private network. Text goes through your laptop to OpenAI. No camera images are sent. Browser speech recognition may use its provider’s online service.</p>
+      </details>
+      <div id="conversationText" class="conversation-text" role="log" aria-live="polite"></div>
+      <form id="textForm"><label class="sr-only" for="messageInput">Message Bello</label><input id="messageInput" maxlength="1200" placeholder="Type or use 🎙 Talk" autocomplete="off"><button type="submit">Send</button></form>
+      <div class="conversation-actions"><button id="stopConversation" type="button">Stop</button><button id="clearConversation" type="button">Clear chat</button><button id="localMode" type="button">Use local mode</button></div>
+    </section>
     <div id="tip" class="tip" hidden>Move your phone slowly over a well-lit flat surface.</div>
     <div id="voiceToast" class="voice-toast" role="status" aria-live="polite" hidden></div>
   </div>

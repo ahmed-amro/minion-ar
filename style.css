@@ -78,3 +78,24 @@ body.xr-active .voice-toast { bottom: calc(94px + env(safe-area-inset-bottom)); 
  .ar-controls .size-control button {width:32px;}
  .ar-controls .size-control output {width:40px;}
 }
+
+/* v0.7: optional laptop conversation, independent of AR placement controls. */
+.conversation-toggle { pointer-events:auto; position:absolute; right:12px; top:calc(12px + env(safe-area-inset-top)); width:auto; padding:8px 12px; min-height:40px; background:#263d55; color:white; border:1px solid #ffffff55; font-size:12px; }
+body:not(.xr-active) .conversation-toggle { top:auto; bottom:calc(22px + env(safe-area-inset-bottom)); }
+body.xr-active .conversation-toggle { top:calc(86px + env(safe-area-inset-top)); }
+.conversation-panel { pointer-events:auto; position:absolute; z-index:30; right:12px; bottom:calc(90px + env(safe-area-inset-bottom)); width:min(360px,calc(100vw - 24px)); max-height:65dvh; overflow:auto; background:#14263af5; border:1px solid #ffffff55; padding:14px; border-radius:18px; box-shadow:0 8px 30px #0008; }
+.conversation-heading,.conversation-actions,#textForm { display:flex; gap:7px; align-items:center; }
+.conversation-heading { justify-content:space-between; }
+.conversation-heading button { width:36px; min-height:32px; background:#ffffff22; color:white; }
+.conversation-panel p { font-size:12px; margin:8px 0; }
+.conversation-panel summary { cursor:pointer; font-size:13px; padding:8px 0; }
+.conversation-panel label { display:block; font-size:12px; margin:8px 0; }
+.conversation-panel input { width:100%; min-width:0; min-height:40px; margin-top:4px; border:1px solid #ffffff55; background:#0d1b2b; border-radius:8px; color:white; padding:8px; font:inherit; }
+.conversation-panel button { font-size:12px; min-height:36px; }
+#textForm input { flex:1; }
+#textForm button { width:55px; }
+.conversation-actions { margin-top:8px; }
+.conversation-actions button { flex:1; background:#354b65; color:white; }
+.conversation-text { max-height:130px; overflow:auto; font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.conversation-text div { margin:7px 0; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }

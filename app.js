@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Conversation, isDirectCommand } from './conversation.js?v=0.7.1';
+import { Conversation, isDirectCommand } from './conversation.js?v=0.7.2';
 
-// Bello 0.7.1 — voice commands, tactile material textures, expressive AR desk companion.
+// Bello 0.7.2 — voice commands, tactile material textures, expressive AR desk companion.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');

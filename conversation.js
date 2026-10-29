@@ -19,7 +19,7 @@ export function localBackendURL(raw) {
   return url.origin;
 }
 export class Conversation {
-  constructor({fetcher = globalThis.fetch, timeout = 22000} = {}) {
+  constructor({fetcher = globalThis.fetch.bind(globalThis), timeout = 22000} = {}) {
     this.fetcher = fetcher; this.timeout = timeout; this.history = []; this.enabled = false;
     this.serial = 0; this.controller = null; this.url = ''; this.token = '';
   }

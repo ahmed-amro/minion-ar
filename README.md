@@ -1,42 +1,28 @@
-# Bello — tiny AR companion, prototype 0.3
+# Bello — tiny AR desk companion, prototype 0.4
 
-A tiny, playful, yellow, original cartoon character in your physical room, using Three.js and WebXR. No API key, backend, or AI required yet.
+This builds on the **working v0.3 WebXR/Three.js prototype**, keeping **Move Bello** and the 6–24 cm resizing controls.
 
-## What's new in v0.3
+## New: tiny autonomous desk life
 
-- **Mug-sized Bello**: defaults to 12 cm tall in AR (previously ~84 cm).
-- **Move Bello**: once placed, tap **Move Bello**, aim the white ring at a new location, then tap the real-world view to place him again. **Cancel Move** restores the old placement.
-- **Adjust his height**: use the − and + buttons (6–24 cm, in 2 cm steps).
-- **Compact AR toolbar** so Bello does not get covered by a large instruction card.
-- Tap the AR view once placed for random waves, dancing, jumping, or spinning.
+- Bello stands still at his anchored position while you are tapping the AR scene or using the controls.
+- After **30 seconds without a tap/control interaction**, Bello gets bored: shuffles on the spot, fetches a tiny chair, sits down, and reads a magazine.
+- Bello keeps quietly reading until you tap the AR view, move him, resize him, or press **Wake Bello**.
+- **Try a break** demonstrates the routine immediately without waiting 30 seconds. The button becomes **Wake Bello** while the routine plays.
+- **Auto: On / Off** controls whether idle activities start automatically. Off does not disable the manual **Try a break** button.
+- Props are 3D and follow Bello's position and size. None of this needs a backend, microphone, AI API, or special assets.
 
-## Update an existing GitHub Pages site
+## How to update GitHub Pages
 
-1. Extract the ZIP file onto your computer.
-2. Open the GitHub repository Code page. Choose **Add file → Upload files**.
-3. Upload the **three updated files**: `index.html`, `app.js`, `style.css` **to the repository root**. Confirm that they replace the existing versions.
-4. Commit changes to `main` and wait for GitHub Actions' Pages deployment to turn green.
-5. On Android Chrome, reopen `https://YOUR-USERNAME.github.io/minion-ar/` and verify it says **PROTOTYPE 0.3**. If you still see 0.2, refresh the page or close and reopen the tab.
+1. Unzip the project.
+2. In the repository root on GitHub, use **Add file → Upload files**.
+3. Upload/replace **`index.html`, `app.js`, `style.css`**. The `.nojekyll` file is unchanged.
+4. Commit to `main`, wait for the Pages deployment green checkmark, and reload on your phone. The heading should say **PROTOTYPE 0.4**.
+5. Start AR, place Bello, and press **Try a break ☕**. Check the chair and magazine animation.
 
-## How to use
+## Important limits
 
-1. Tap **Start AR** and scan a well-lit textured surface (desktop, coffee table, floor).
-2. Tap the **white circle** to place Bello. His height is ~12 cm.
-3. Tap anywhere in the camera view to trigger an animation.
-4. Tap **Move Bello**, point at a different surface, and tap the new white circle to relocate him. You can cancel moving without losing the old position.
-5. Adjust height with − / +. Tap **Exit AR** to go back to the 3D preview.
-
-## Files
-
-- `index.html`: UI & Three.js module import.
-- `style.css`: responsive dark interface, compact AR toolbar.
-- `app.js`: procedural character, WebXR hit testing, movement and reaction controls.
-- `.nojekyll`: static GitHub Pages support.
-
-## Notes
-
-- AR uses the `local` reference space; `local-floor` wasn't supported by the tested phone/browser session.
-- After initial placement, tapping the **camera view** triggers a random reaction; the **Move Bello** button starts re-placement mode.
-- The estimated 12 cm height comes from the character's procedural geometry, not a measurement sensor; phone tracking can vary.
-- The camera view is processed by the phone's AR system. Our application has no backend, doesn't store camera images, and doesn't call an AI service.
-- Scene understanding may fail on featureless or dark surfaces. AR location is session-local and resets when you exit AR.
+- This is a **time-since-last-interaction** approximation of attention, not eye tracking or recognition of whether someone is looking at Bello.
+- To avoid wandering off the edge of a table, he only shuffles **in place** for now. We do not have a reliable map of table edges or obstacles.
+- Props are cartoon animations, not real-world physics, and the chair and magazine do not interact with physical surfaces.
+- The AR camera frames are processed locally by the phone's AR system. This static app does not transmit or store camera frames and has no server/API integrations.
+- Browser/XR behavior still needs a hands-on phone test. We validate JavaScript syntax and package structure here, not the full AR runtime.

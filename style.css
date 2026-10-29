@@ -28,3 +28,13 @@ body.xr-active .panel h1 { grid-column: 1; grid-row: 1; font-size: 16px; margin:
 body.xr-active .panel #status { grid-column: 1; grid-row: 2; margin-top: 0; font-size: 11px; min-height: 14px; }
 body.xr-active #arButton { grid-column: 2; grid-row: 1 / span 2; width: auto; padding: 8px 12px; min-height: 40px; font-size: 13px; }
 body.xr-active .tip { bottom: calc(84px + env(safe-area-inset-bottom)); font-size: 12px; }
+
+/* Bello 0.4: hands-off desk activities with optional demo and autonomy switch. */
+.ar-controls { display: flex; flex-direction: column; align-items: stretch; gap: 7px; }
+.placement-control, .activity-control { display: flex; align-items: center; gap: 8px; }
+.placement-control { width: 100%; }
+.activity-control { justify-content: flex-end; }
+.activity-control button { pointer-events: auto; width: auto; min-height: 35px; padding: 5px 13px; background: #1e2d43ec; border: 1px solid #ffffff4d; color: white; border-radius: 999px; font-size: 12px; }
+.activity-control .break-button { background: #ffe174; color: #242014; }
+.activity-control .auto-button[aria-pressed="false"] { opacity: .68; }
+body.xr-active .tip { bottom: calc(125px + env(safe-area-inset-bottom)); }

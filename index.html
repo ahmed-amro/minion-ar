@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#182334">
-  <title>Bello — Little AR Companion v0.3</title>
-  <link rel="stylesheet" href="./style.css?v=0.3">
+  <title>Bello — Little AR Companion v0.4</title>
+  <link rel="stylesheet" href="./style.css?v=0.4">
   <script type="importmap">
     {
       "imports": {
@@ -17,22 +17,28 @@
 <body>
   <div id="overlay">
     <section class="panel">
-      <div class="eyebrow">PROTOTYPE 0.3 · AR COMPANION</div>
+      <div class="eyebrow">PROTOTYPE 0.4 · AR COMPANION</div>
       <h1>Meet Bello <span aria-hidden="true">👋</span></h1>
       <p id="instruction">Meet your tiny companion! Open AR, find a desk or table, and tap the white circle to place him.</p>
       <button id="arButton" disabled>Checking AR support…</button>
       <div id="status" role="status" aria-live="polite">Loading 3D preview…</div>
     </section>
     <div id="arControls" class="ar-controls" hidden>
+      <div class="activity-control">
+        <button id="breakButton" class="break-button" type="button" aria-label="Let Bello take a break">Try a break ☕</button>
+        <button id="autoButton" class="auto-button" type="button" aria-pressed="true" title="Automatic activities after 30 seconds of inactivity">Auto: On</button>
+      </div>
+      <div class="placement-control">
       <button id="moveButton" class="move-button" type="button">Move Bello</button>
       <div class="size-control" aria-label="Bello size">
         <button id="smallerButton" type="button" aria-label="Make Bello smaller">−</button>
         <output id="sizeLabel">12 cm</output>
         <button id="largerButton" type="button" aria-label="Make Bello bigger">+</button>
       </div>
+      </div>
     </div>
     <div id="tip" class="tip" hidden>Move your phone slowly over a well-lit flat surface.</div>
   </div>
-  <script type="module" src="./app.js?v=0.3"></script>
+  <script type="module" src="./app.js?v=0.4"></script>
 </body>
 </html>

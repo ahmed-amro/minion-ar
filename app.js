@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Bello 0.3 — entirely client-side, no camera upload, AI or API required.
+// Bello 0.4 — entirely client-side, no camera upload, AI or API required.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -11,6 +11,8 @@ const moveButton = document.getElementById('moveButton');
 const smallerButton = document.getElementById('smallerButton');
 const largerButton = document.getElementById('largerButton');
 const sizeLabel = document.getElementById('sizeLabel');
+const breakButton = document.getElementById('breakButton');
+const autoButton = document.getElementById('autoButton');
 
 // Prevent clicks on controls from also registering as AR scene taps.
 overlay.addEventListener('beforexrselect', (event) => {
@@ -30,10 +32,12 @@ function applyARSize() {
   if (session) companion.scale.setScalar((heightCm / 100) / MODEL_HEIGHT_METERS);
 }
 smallerButton.addEventListener('click', () => {
+  markEngaged();
   heightCm = Math.max(MIN_HEIGHT_CM, heightCm - HEIGHT_STEP_CM);
   applyARSize();
 });
 largerButton.addEventListener('click', () => {
+  markEngaged();
   heightCm = Math.min(MAX_HEIGHT_CM, heightCm + HEIGHT_STEP_CM);
   applyARSize();
 });
@@ -96,6 +100,13 @@ let relocating = false;
 let reaction = null;
 let reactionStarted = 0;
 let anchorRotation = 0;
+// The app cannot tell whether someone is looking at the phone.
+// 'Attention' means actual taps or use of an on-screen control.
+const IDLE_DELAY_SECONDS = 30;
+let autoEnabled = true;
+let lastEngagement = performance.now() / 1000;
+let breakStarted = null;
+let lastBreakStage = -1;
 const xrCamPosition = new THREE.Vector3();
 
 function setStatus(message) { status.textContent = message; }
@@ -173,8 +184,178 @@ function buildCompanion() {
     const hair = addMesh(motion, new THREE.CylinderGeometry(.002,.005,.065,8), rubber, x,.8,0);
     hair.rotation.z = tilt;
   }
-  root.userData = { motion, leftArm:arms[0], rightArm:arms[1] };
+  // Tiny wooden chair, and an open illustrated magazine. Both are hidden until
+  // Bello starts his hands-off routine, and inherit his AR position and size.
+  const chair = buildChair();
+  chair.visible = false;
+  root.add(chair);
+  const magazine = buildMagazine();
+  magazine.visible = false;
+  motion.add(magazine);
+  root.userData = { motion, leftArm:arms[0], rightArm:arms[1], chair, magazine,
+    page: magazine.userData.page };
   return root;
+}
+
+
+function buildChair() {
+  const chair = new THREE.Group();
+  const wood = material(0x916545, { roughness: .8 });
+  const upholstery = material(0x3c7c8b);
+  addMesh(chair, new THREE.BoxGeometry(.37,.042,.30), upholstery, 0,.17,-.055);
+  addMesh(chair, new THREE.BoxGeometry(.36,.29,.045), wood, 0,.32,-.19);
+  for (const x of [-.14, .14]) for (const z of [-.17, .065]) {
+    addMesh(chair, new THREE.CylinderGeometry(.018,.022,.148,9), wood, x,.077,z);
+  }
+  // A tiny lip beneath the seat makes it recognizable at mug-size.
+  addMesh(chair, new THREE.BoxGeometry(.36,.026,.02), wood, 0,.12,.085);
+  chair.position.x = -.58; // Starts off-stage; slides behind Bello.
+  return chair;
+}
+
+function buildMagazine() {
+  const book = new THREE.Group();
+  book.position.set(0,.39,.225);
+  book.rotation.x = -.3;
+  const paper = material(0xfff0ce, { side: THREE.DoubleSide });
+  const mint = material(0xbce4dd, { side: THREE.DoubleSide });
+  const ink = material(0x547174);
+  addMesh(book, new THREE.BoxGeometry(.018,.185,.018), material(0xe0a84e), 0,0,0);
+  for (const side of [-1,1]) {
+    const page = new THREE.Group();
+    page.position.x = side * .068;
+    page.rotation.y = side * -.16;
+    addMesh(page, new THREE.BoxGeometry(.135,.174,.009), side < 0 ? paper : mint, 0,0,0);
+    addMesh(page, new THREE.BoxGeometry(.092,.045,.003), material(side < 0 ? 0xa8bd8e : 0x7ba3ca), 0,.035,.007);
+    for (let j=0; j<4; j++) addMesh(page, new THREE.BoxGeometry(.103-.007*(j%2),.005,.002), ink, 0,-.004-j*.025,.008);
+    book.add(page);
+  }
+  const flippingPage = new THREE.Group();
+  flippingPage.position.set(0,.002,.010);
+  addMesh(flippingPage, new THREE.BoxGeometry(.126,.167,.006), paper, .063,0,0);
+  flippingPage.visible = false;
+  book.add(flippingPage);
+  book.userData.page = flippingPage;
+  book.scale.setScalar(.001);
+  return book;
+}
+
+function ease01(x) {
+  x = THREE.MathUtils.clamp(x, 0, 1);
+  return x*x*(3 - 2*x);
+}
+
+function resetActivityVisuals() {
+  const d = companion.userData;
+  d.chair.visible = false;
+  d.chair.position.set(-.58,0,0);
+  d.magazine.visible = false;
+  d.magazine.scale.setScalar(.001);
+  d.page.visible = false;
+  d.page.rotation.y = 0;
+  d.motion.position.set(0,0,0);
+  d.motion.rotation.set(0,0,0);
+}
+
+// Called whenever the user touches Bello or an AR control: he drops the idle
+// routine and resumes standing. A new 30-second quiet interval starts.
+function markEngaged() {
+  lastEngagement = performance.now() / 1000;
+  if (breakStarted !== null) {
+    breakStarted = null;
+    lastBreakStage = -1;
+    resetActivityVisuals();
+  }
+  breakButton.textContent = 'Try a break ☕';
+}
+
+function startBreak(now = performance.now() / 1000) {
+  if (!session || !placed || relocating) return;
+  reaction = null;
+  breakStarted = now;
+  lastBreakStage = -1;
+  breakButton.textContent = 'Wake Bello 👋';
+  setStatus('Bello: Where did I put my chair?');
+}
+
+breakButton.addEventListener('click', () => {
+  if (!session || !placed || relocating) return;
+  if (breakStarted !== null) {
+    markEngaged();
+    setStatus('Bello: I am back! 👋');
+  } else {
+    markEngaged();
+    startBreak();
+  }
+});
+
+autoButton.addEventListener('click', () => {
+  markEngaged();
+  autoEnabled = !autoEnabled;
+  autoButton.textContent = autoEnabled ? 'Auto: On' : 'Auto: Off';
+  autoButton.setAttribute('aria-pressed', String(autoEnabled));
+  setStatus(autoEnabled ? 'Bello will entertain himself after 30 quiet seconds.' : 'Bello will stay standing until you tap Try a break.');
+});
+
+function animateBreak(t) {
+  const d = companion.userData;
+  const elapsed = Math.max(0, t - breakStarted);
+  const stage = elapsed < 1.6 ? 0 : elapsed < 3.8 ? 1 : elapsed < 5.4 ? 2 : 3;
+  if (stage !== lastBreakStage) {
+    lastBreakStage = stage;
+    setStatus([
+      'Bello: Looking for something to do…',
+      'Bello: Bringing my chair! 🪑',
+      'Bello: Ahhh, comfy!',
+      'Bello: Busy reading 📖 — tap to say hello!'
+    ][stage]);
+  }
+
+  let bounce = 0;
+  let spin = 0;
+  let left = -.22;
+  let right = .22;
+  let localX = 0;
+  let localY = 0;
+
+  if (stage === 0) {
+    // Shuffles in place, not across the desk: no collision detection required.
+    localX = .018*Math.sin(elapsed*8);
+    bounce = .011*Math.abs(Math.sin(elapsed*10));
+    spin = .22*Math.sin(elapsed*4);
+  }
+  if (elapsed >= 1.6) {
+    const arrive = ease01((elapsed-1.6)/2.2);
+    d.chair.visible = true;
+    d.chair.position.x = -.58*(1-arrive);
+    left = -.18 + .4*Math.sin(elapsed*4)*(1-arrive);
+    right = .8 + .2*Math.sin(elapsed*7)*(1-arrive);
+  }
+  if (elapsed >= 3.8) {
+    const sit = ease01((elapsed-3.8)/1.6);
+    localY = -.095*sit;
+    // Bend toward the magazine rather than flying away from the AR anchor.
+    d.motion.rotation.x = -.10*sit;
+    left = -.22*(1-sit) + .85*sit;
+    right = .22*(1-sit) - .85*sit;
+    d.magazine.visible = elapsed >= 4.6;
+    if (d.magazine.visible) {
+      const reveal = ease01((elapsed-4.6)/.75);
+      d.magazine.scale.setScalar(Math.max(.001,reveal));
+    }
+  }
+  if (stage === 3) {
+    // Calm breathing and the occasional page-turn while reading.
+    localY += .003*Math.sin(t*2);
+    spin = .025*Math.sin(t*.9);
+    d.page.visible = Math.sin((elapsed-5.4)*.75) > .9;
+    if (d.page.visible) d.page.rotation.y = .35+.4*Math.sin(t*5);
+  } else d.page.visible = false;
+  d.motion.position.x = localX;
+  d.motion.position.y = localY + bounce;
+  d.motion.rotation.y = spin;
+  d.leftArm.rotation.z = left;
+  d.rightArm.rotation.z = right;
 }
 
 async function checkSupport() {
@@ -223,6 +404,7 @@ button.addEventListener('click', async () => {
     relocating = false;
     instruction.textContent = 'Scan a surface and tap the ring to place Bello.';
     companion.visible = false;
+    markEngaged();
     previewBase.visible = false;
     tip.hidden = false;
     applyARSize();
@@ -257,8 +439,8 @@ function onSessionEnd() {
   companion.position.set(0,0,0);
   companion.rotation.set(0,0,0);
   companion.scale.setScalar(1);
-  companion.userData.motion.position.y = 0;
-  companion.userData.motion.rotation.y = 0;
+  markEngaged();
+  resetActivityVisuals();
   instruction.textContent = 'Open AR again to place your companion anywhere.';
   button.textContent = 'Start AR';
   setStatus('Back in 3D preview.');
@@ -267,6 +449,7 @@ function onSessionEnd() {
 // Keep Bello anchored in AR while allowing repeated placement without exiting AR.
 moveButton.addEventListener('click', () => {
   if (!session) return;
+  markEngaged();
   if (relocating) {
     // Cancel relocation: restore Bello at his previous placement.
     relocating = false;
@@ -306,10 +489,12 @@ function handleTap() {
     moveButton.textContent = 'Move Bello';
     reticle.visible = false;
     tip.hidden = true;
-    setStatus('Bello is here! Tap anywhere to make him react.');
+    markEngaged();
+    setStatus('Bello is here! Tap to play; leave him alone for 30s to see a surprise.');
     return;
   }
-  // Tap anywhere after placement, intentionally forgiving for a first prototype.
+  // Tap anywhere to engage again: the chair and magazine disappear first.
+  markEngaged();
   const actions = ['wave','jump','dance','spin'];
   reaction = actions[Math.floor(Math.random() * actions.length)];
   reactionStarted = performance.now() / 1000;
@@ -318,7 +503,13 @@ function handleTap() {
 
 function animate(time) {
   const t = time / 1000;
+  if (session && placed && !relocating && autoEnabled && breakStarted === null
+      && t - lastEngagement > IDLE_DELAY_SECONDS) startBreak(t);
   const d = companion.userData;
+  if (breakStarted !== null) {
+    animateBreak(t);
+    return;
+  }
   const motion = d.motion;
   let bounce = .008 * Math.sin(t * 2.5);
   let spin = .045 * Math.sin(t * 1.5);
@@ -336,6 +527,7 @@ function animate(time) {
       right = 1 - Math.sin(elapsed * 10) * .4;
     }
   } else reaction = null;
+  motion.position.x = 0;
   motion.position.y = bounce;
   motion.rotation.y = spin;
   d.leftArm.rotation.z = left;

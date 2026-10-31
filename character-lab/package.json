@@ -1,0 +1,1 @@
+{"name":"bello-character-lab","version":"0.8.0-p1","private":true,"type":"module","engines":{"node":">=18"},"scripts":{"test":"node --no-warnings --experimental-loader ./tests/three-loader.mjs --test tests/*.test.js"}}

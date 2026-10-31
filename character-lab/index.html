@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111b20"><title>Bello · Character Lab</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="./lab.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+  <div id="viewport" aria-label="Interactive Bello preview"></div>
+  <div id="overlay">
+    <header><a class="wordmark" href="./">bello<span>●</span></a><span class="edition">CHARACTER LAB / 0.8-P1</span><span class="pill">Independent prototype</span></header>
+    <main>
+      <section class="intro"><div class="eyebrow">A LITTLE MORE ALIVE</div><h1>Small character.<br>Big personality.</h1><p>Meet the next expression of Bello.<br>Touch to play. Leave him to his reading.</p></section>
+      <aside class="panel" aria-label="Character controls">
+        <div class="panel-top"><span class="eyebrow">DIRECTOR’S DESK</span><span id="mode">3D PREVIEW</span></div>
+        <h2>Say it with a gesture.</h2>
+        <div class="actions" id="actions">
+          <button data-action="wave">Wave <span>↗</span></button><button data-action="dance">Dance <span>♫</span></button>
+          <button data-action="jump">Jump <span>↑</span></button><button data-action="spin">Spin <span>⟳</span></button>
+          <button data-action="giggle">Giggle <span>☺</span></button><button data-action="peek">Peek <span>◉</span></button>
+          <button data-action="read">Read <span>▤</span></button><button data-action="wake">Wake <span>☀</span></button>
+        </div>
+        <label class="section-label" for="conversation">Conversation state <span>SIMULATED</span></label>
+        <select id="conversation"><option value="idle">Idle · free to play</option><option value="listening">Listening · attentive</option><option value="thinking">Thinking · curious</option><option value="speaking">Speaking · expressive</option></select>
+        <p class="micro">No microphone or AI connection. Reading pauses while Bello is engaged.</p>
+        <div class="setting"><label for="auto">Read after 30 quiet seconds</label><input id="auto" type="checkbox" checked></div>
+        <div class="setting"><label for="size">Height <output id="height">12 cm</output></label><input id="size" type="range" min="6" max="24" step="2" value="12"></div>
+        <div class="setting"><label for="quality">Render quality</label><select id="quality"><option value="1">Balanced</option><option value="1.5">High</option></select></div>
+        <button class="primary" id="ar" disabled>Checking AR… <span>↗</span></button>
+        <button id="move" hidden>Move Bello</button>
+        <p id="status" role="status" aria-live="polite">Building Bello…</p>
+      </aside>
+      <div class="caption"><span class="dot"></span><span id="activity">Standing</span><span class="caption-note">Drag to orbit · scroll to zoom</span></div>
+    </main>
+    <footer><span>DESK-SIZED BY DESIGN</span><span id="stats">Loading renderer…</span><span>PROCEDURAL CHARACTER / GLB COMPARISON NEXT</span></footer>
+    <div id="xrbar" hidden><button id="xrExit">Exit AR</button><button id="xrMove">Move</button><button data-action="wave">Wave</button><button data-action="read">Read</button><button data-action="wake">Wake</button><button id="xrSizeDown">−</button><span id="xrHeight">12 cm</span><button id="xrSizeUp">+</button><select id="xrState" aria-label="AR conversation state"><option>idle</option><option>listening</option><option>thinking</option><option>speaking</option></select><span id="xrStatus" role="status">Scan a horizontal surface</span></div>
+  </div>
+  <script type="module" src="./lab.js"></script>
+</body></html>

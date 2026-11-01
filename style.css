@@ -99,3 +99,9 @@ body.xr-active .conversation-toggle { top:calc(86px + env(safe-area-inset-top));
 .conversation-text { max-height:130px; overflow:auto; font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; }
 .conversation-text div { margin:7px 0; }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+
+/* v0.7.3 preferences share the existing scrollable conversation panel. */
+.conversation-panel select,.conversation-panel textarea {width:100%; min-height:40px; border:1px solid #ffffff55; border-radius:8px; padding:8px; background:#0d1b2b; color:white; font:inherit;}
+.conversation-panel input[type="range"] {padding:0; accent-color:#ffdc42;}
+#preferencesDetails {border-top:1px solid #ffffff25;margin-top:8px; padding-top:4px;}
+#preferencesDetails output {float:right;color:#ffdc42;}

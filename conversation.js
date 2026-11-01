@@ -63,9 +63,9 @@ export class Conversation {
     if (result.status !== 'ready') throw new Error('Backend is not ready');
     this.enabled = true; return result;
   }
-  async turn(text) {
+  async turn(text, settings = {}) {
     if (!this.enabled) throw new Error('Not connected');
-    const result = await this.request('/chat', {text, history: this.history});
+    const result = await this.request('/chat', {text, history: this.history, settings});
     if (typeof result.reply !== 'string' || !result.reply.trim() || result.reply.length > 700 || !ACTIONS.includes(result.action)) throw new Error('Invalid reply');
     this.history.push({role: 'user', content: text.slice(0, 1200)}, {role: 'assistant', content: result.reply});
     this.history = this.history.slice(-10);

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { Conversation, isDirectCommand } from './conversation.js?v=0.7.2';
+import { Conversation, isDirectCommand } from './conversation.js?v=0.7.3';
 
-// Bello 0.7.2 — voice commands, tactile material textures, expressive AR desk companion.
+import { readPreferences, savePreferences, personalitySettings, applyVoice, mountPreferences } from './preferences.js?v=0.7.3';
+
+// Bello 0.7.3 — voice commands, tactile material textures, expressive AR desk companion.
 const button = document.getElementById('arButton');
 const status = document.getElementById('status');
 const instruction = document.getElementById('instruction');
@@ -25,6 +27,9 @@ const voiceToast = document.getElementById('voiceToast');
 const commandButtons = [...document.querySelectorAll('[data-bello-command]')];
 let voiceRepliesEnabled = true;
 const conversation = new Conversation();
+let preferenceStorage;
+try { preferenceStorage = window.localStorage; } catch (_) { /* Storage is optional. */ }
+let preferences = readPreferences(preferenceStorage);
 let conversationState = 'idle';
 let engagementEpoch = 0;
 let speechEpoch = 0;
@@ -84,7 +89,7 @@ soundButton.addEventListener('click', () => {
 
 // Prevent clicks on controls from also registering as AR scene taps.
 overlay.addEventListener('beforexrselect', (event) => {
-  if (event.target.closest('button, input, form, details, .conversation-panel')) event.preventDefault();
+  if (event.target.closest('button, input, select, textarea, form, details, .conversation-panel')) event.preventDefault();
 });
 
 // Built model is ~84 cm tall at scale 1; 12 cm is a comfortable desk companion.
@@ -644,17 +649,15 @@ function setListening(active) {
   micButton.textContent = active ? '🛑 Stop' : '🎙 Talk';
   previewMicButton.textContent = active ? '🛑 Stop listening' : '🎙 Test voice in preview';
 }
-function say(shortLine) {
+function say(shortLine, forcePreview = false) {
   const epoch = ++speechEpoch;
   conversationState = 'idle';
-  if (!voiceRepliesEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+  if ((!voiceRepliesEnabled && !forcePreview) || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
   try {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(shortLine);
     utterance.lang = 'en-US';
-    utterance.rate = 1.18;
-    utterance.pitch = 1.35;
-    utterance.volume = .76;
+    applyVoice(utterance, preferences, window.speechSynthesis.getVoices?.() || []);
     conversationState = 'speaking';
     utterance.onend = utterance.onerror = () => {
       if (epoch !== speechEpoch) return;
@@ -846,7 +849,7 @@ async function handleUtterance(raw) {
   updateConversationStatus('Thinking…');
   setStatus('Bello is thinking…');
   try {
-    const result = await conversation.turn(text);
+    const result = await conversation.turn(text, personalitySettings(preferences));
     if (epoch !== engagementEpoch) return;
     conversationState = 'idle';
     if (result.action !== 'none') react(result.action);
@@ -880,7 +883,7 @@ document.getElementById('connectForm').addEventListener('submit', async event =>
   try {
     const result = await conversation.connect(addressInput.value, pairingInput.value);
     if (epoch !== engagementEpoch) { conversation.disconnect(); return; }
-    updateConversationStatus('AI ready · ' + result.model + ' · ' + result.daily_limit + ' attempts/day');
+    updateConversationStatus('AI ready · ' + result.model + ' · ' + result.daily_limit + ' attempts/day' + (result.version === '0.7.3' ? '' : ' · Update laptop backend for personality controls.'));
     pairingInput.value = '';
     document.getElementById('connectionDetails').open = false;
   } catch (error) {
@@ -1142,4 +1145,10 @@ window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+mountPreferences({
+  get: () => preferences,
+  set: value => { preferences=value; return savePreferences(preferenceStorage,value); },
+  cancel: cancelConversation,
+  preview: text => { cancelConversation(); say(text, true); }
+});
 checkSupport();

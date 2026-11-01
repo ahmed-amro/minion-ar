@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#182334">
-  <title>Bello — Little AR Companion v0.7.2</title>
-  <link rel="stylesheet" href="./style.css?v=0.7.2">
+  <title>Bello — Little AR Companion v0.7.3</title>
+  <link rel="stylesheet" href="./style.css?v=0.7.3">
   <script type="importmap">
     {
       "imports": {
@@ -17,7 +17,7 @@
 <body>
   <div id="overlay">
     <section class="panel">
-      <div class="eyebrow">PROTOTYPE 0.7.2 · AR COMPANION</div>
+      <div class="eyebrow">PROTOTYPE 0.7.3 · AR COMPANION</div>
       <h1>Meet Bello <span aria-hidden="true">👋</span></h1>
       <p id="instruction">Place Bello on your desk, then tap or talk to him. Try “Bello, dance!”</p>
       <button id="arButton" disabled>Checking AR support…</button>
@@ -63,6 +63,22 @@
         </form>
         <p>Only connect on a trusted private network. Text goes through your laptop to OpenAI. No camera images are sent. Browser speech recognition may use its provider’s online service.</p>
       </details>
+      <details id="preferencesDetails">
+        <summary>⚙ Voice &amp; personality</summary>
+        <label>Voice<select id="pref-voiceURI"></select></label>
+        <p>Voices depend on this device. A non-English voice does not change Bello’s English recognition or replies. Some voices may use an online speech service.</p>
+<label>Speed <output id="pref-rate-value"></output><input id="pref-rate" type="range" min="0.5" max="2" step="0.01"></label>
+<label>Pitch <output id="pref-pitch-value"></output><input id="pref-pitch" type="range" min="0.5" max="2" step="0.01"></label>
+<label>Speech volume <output id="pref-volume-value"></output><input id="pref-volume" type="range" min="0" max="1" step="0.01"></label>
+        <button id="previewVoice" type="button">Preview voice</button>
+        <label>Personality<select id="pref-personality"><option value="playful">Playful companion</option><option value="assistant">Helpful assistant</option></select></label>
+        <label>Humor<select id="pref-humor"><option value="off">Off</option><option value="light">Light</option><option value="playful">Extra playful</option></select></label>
+        <label>Reply length<select id="pref-length"><option value="short">Short — up to 25 words</option><option value="normal">Normal — up to 70 words</option></select></label>
+        <label>Personal instruction (optional)<textarea id="pref-instruction" maxlength="300" rows="3" placeholder="For example: be curious and keep explanations simple."></textarea></label>
+        <p>Preferences, including this instruction, are saved on this browser. Personality settings are sent to OpenAI with AI messages. Chat history is not saved. Do not enter passwords or API keys here.</p>
+        <p id="preferencesNotice" role="status">Changes save automatically. Preview voice ignores Replies Off so you can test it.</p>
+        <button id="resetPreferences" type="button">Reset settings</button>
+      </details>
       <div id="conversationText" class="conversation-text" role="log" aria-live="polite"></div>
       <form id="textForm"><label class="sr-only" for="messageInput">Message Bello</label><input id="messageInput" maxlength="1200" placeholder="Type or use 🎙 Talk" autocomplete="off"><button type="submit">Send</button></form>
       <div class="conversation-actions"><button id="stopConversation" type="button">Stop</button><button id="clearConversation" type="button">Clear chat</button><button id="localMode" type="button">Use local mode</button></div>
@@ -70,6 +86,6 @@
     <div id="tip" class="tip" hidden>Move your phone slowly over a well-lit flat surface.</div>
     <div id="voiceToast" class="voice-toast" role="status" aria-live="polite" hidden></div>
   </div>
-  <script type="module" src="./app.js?v=0.7.2"></script>
+  <script type="module" src="./app.js?v=0.7.3"></script>
 </body>
 </html>
